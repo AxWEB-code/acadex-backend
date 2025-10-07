@@ -1,0 +1,3 @@
+curl -X POST http://localhost:5000/api/schools \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My School","subdomain":"myschool","logo":"logo.png"}'

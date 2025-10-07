@@ -1,0 +1,184 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+
+model School {
+  id                Int          @id @default(autoincrement())
+  name              String
+  subdomain         String       @unique
+  logo              String?
+  schoolCode        String       @unique
+  schoolType        SchoolType   @default(CBT) // HIGH_SCHOOL | TERTIARY | CBT
+  plan              String       @default("free")
+  subscriptionStart DateTime?
+  subscriptionEnd   DateTime?
+
+  // Default settings & preferences
+  settings          Json?        // Stores editable defaults (exam mode, grading, etc.)
+  permissions       Json?        // Stores permission templates per role (editable)
+  analytics         Json?        // Stores student, exam, and result counts
+
+  // Admin configuration
+  adminEmail        String?
+  adminPassword     String?      // hashed
+  adminRoles        Json?        // { mainAdmin, examAdmin, resultAdmin, admissionAdmin }
+
+  // Relations
+  students          Student[]
+  exams             Exam[]
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+enum SchoolType {
+  HIGH_SCHOOL
+  TERTIARY
+  CBT
+}
+
+
+
+model Student {
+  id             Int       @id @default(autoincrement())
+  admissionNo    String    @unique
+  password       String
+  firstName      String
+  lastName       String
+  dob            DateTime?
+  academicYear   String?
+  rollNumber     String?
+  status         String?
+  class          String?
+  department     String?
+  contactNumber  String?
+  email          String    @unique
+  category       String?
+  approvalStatus String?   @default("pending")
+
+  school   School @relation(fields: [schoolId], references: [id])
+  schoolId Int
+
+  results     Result[]           @relation("StudentResults")
+  accessCodes ResultAccessCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Exam {
+  id         Int      @id @default(autoincrement())
+  title      String
+  type       String
+  department String
+  className  String
+  semester   String
+  startDate  DateTime
+  endDate    DateTime
+  examYear   Int
+  timer      Int?
+
+  courses     ExamCourse[]
+  results     Result[]           @relation("ExamResults")
+  questions   ExamQuestion[]
+  accessCodes ResultAccessCode[] // <-- back-relation added
+
+  school   School @relation(fields: [schoolId], references: [id])
+  schoolId Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExamCourse {
+  id         Int    @id @default(autoincrement())
+  exam       Exam   @relation(fields: [examId], references: [id])
+  examId     Int
+  courseName String
+
+  questions ExamQuestion[]
+}
+
+model ExamQuestion {
+  id            Int          @id @default(autoincrement())
+  exam          Exam         @relation(fields: [examId], references: [id])
+  examId        Int
+  course        ExamCourse   @relation(fields: [courseId], references: [id])
+  courseId      Int
+  question      String
+  questionType  QuestionType
+  questionImage String?
+  correctOption OptionLetter
+
+  options ExamOption[]
+
+  createdAt DateTime @default(now())
+}
+
+model ExamOption {
+  id           Int          @id @default(autoincrement())
+  question     ExamQuestion @relation(fields: [questionId], references: [id])
+  questionId   Int
+  optionText   String
+  isCorrect    Boolean      @default(false)
+  optionLetter OptionLetter
+}
+
+enum QuestionType {
+  Objective
+  Subjective
+}
+
+enum OptionLetter {
+  A
+  B
+  C
+  D
+}
+
+model Result {
+  id           Int      @id @default(autoincrement())
+  admission_no String
+  roll_number  String
+  result_type  String
+  exam_name    String
+  exam_type    String
+  semester     String
+  exam_year    Int
+  course       String
+  score        Int
+  remarks      String?
+  created_at   DateTime @default(now())
+
+  student   Student @relation("StudentResults", fields: [studentId], references: [id])
+  studentId Int
+
+  exam   Exam @relation("ExamResults", fields: [examId], references: [id])
+  examId Int
+
+  accessCodes ResultAccessCode[]
+}
+
+model ResultAccessCode {
+  id        Int     @id @default(autoincrement())
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId Int
+  exam      Exam    @relation(fields: [examId], references: [id])
+  examId    Int
+  result    Result? @relation(fields: [resultId], references: [id])
+  resultId  Int?
+
+  code      String @unique
+  maxUses   Int    @default(3)
+  usedCount Int    @default(0)
+
+  createdAt DateTime @default(now())
+}

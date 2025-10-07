@@ -1,19 +1,13 @@
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-
-dotenv.config();
+import prisma from "./prisma"; // should already import Prisma client
+import schoolRoutes from "./routes/schoolRoutes";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("AcadeX Backend is running 🚀");
-});
+app.use("/api/schools", schoolRoutes);
 
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

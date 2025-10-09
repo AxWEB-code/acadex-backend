@@ -1,4 +1,3 @@
-
 import { Request, Response } from "express";
 import prisma from "../prisma";
 import bcrypt from "bcryptjs";
@@ -23,6 +22,7 @@ async function generateRollNumber() {
   
   return `adx-${currentYear}-${formattedNumber}`;
 }
+
 export const createStudent = async (req: Request, res: Response) => {
   try {
     const {
@@ -109,5 +109,66 @@ export const createStudent = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error", error });
+  }
+};
+
+// Get students with role-based filtering (Portal admin + School admin)
+export const getStudents = async (req: Request, res: Response) => {
+  try {
+    const { 
+      schoolId,           // School admins provide their schoolId
+      departmentId, 
+      level, 
+      class: studentClass, 
+      academicYear,
+      approvalStatus,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    // Build filter object
+    const where: any = {};
+
+    // 🔐 ROLE-BASED ACCESS:
+    // - Portal admin: no schoolId = sees ALL students
+    // - School admin: provides schoolId = sees only their school
+    if (schoolId) {
+      where.schoolId = Number(schoolId);
+    }
+    // If no schoolId provided, portal admin sees everything
+
+    // Add other filters...
+    if (departmentId) where.departmentId = departmentId;
+    if (level) where.level = level;
+    if (studentClass) where.class = studentClass;
+    if (academicYear) where.academicYear = academicYear;
+    if (approvalStatus) where.approvalStatus = approvalStatus;
+
+    const students = await prisma.student.findMany({
+      where,
+      include: { school: true, department: true },
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit),
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const total = await prisma.student.count({ where });
+
+    res.json({
+      students,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    // FIXED: Add proper error type checking
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "An unknown error occurred" });
+    }
   }
 };

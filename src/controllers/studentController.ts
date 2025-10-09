@@ -1,63 +1,113 @@
+
 import { Request, Response } from "express";
 import prisma from "../prisma";
+import bcrypt from "bcryptjs";
 
-// Create Student
+// Function to generate global roll number
+async function generateRollNumber() {
+  const lastStudent = await prisma.student.findFirst({
+    orderBy: { id: "desc" },
+  });
+
+  const currentYear = new Date().getFullYear();
+  
+  // Start from 1 instead of 1000
+  const lastNumber = lastStudent
+    ? parseInt(lastStudent.rollNumber.split("-").pop() || "0", 10)
+    : 0;
+
+  const nextNumber = lastNumber + 1;
+  
+  // Format as 001, 002, etc.
+  const formattedNumber = nextNumber.toString().padStart(3, '0');
+  
+  return `adx-${currentYear}-${formattedNumber}`;
+}
 export const createStudent = async (req: Request, res: Response) => {
   try {
-    const student = await prisma.student.create({
-      data: req.body,
-    });
-    res.status(201).json(student);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    const {
+      admissionNo, // from school input
+      firstName,
+      lastName,
+      gender,
+      email,
+      schoolId,
+      password,
+      contactNumber,
+      dob,
+      academicYear,
+      level,
+    } = req.body;
 
-// Get all students
-export const getStudents = async (req: Request, res: Response) => {
-  try {
-    const students = await prisma.student.findMany({
-      include: { school: true, results: true },
-    });
-    res.json(students);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    if (
+      !admissionNo ||
+      !firstName ||
+      !lastName ||
+      !gender ||
+      !email ||
+      !schoolId ||
+      !password
+    ) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
-// Get single student
-export const getStudent = async (req: Request, res: Response) => {
-  try {
-    const student = await prisma.student.findUnique({
-      where: { id: Number(req.params.id) },
-      include: { school: true, results: true },
+    // Get school details
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
     });
-    if (!student) return res.status(404).json({ error: "Not found" });
-    res.json(student);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+    if (!school) return res.status(404).json({ message: "School not found" });
 
-// Update student
-export const updateStudent = async (req: Request, res: Response) => {
-  try {
-    const student = await prisma.student.update({
-      where: { id: Number(req.params.id) },
-      data: req.body,
+    // Generate system roll number
+    const rollNumber = await generateRollNumber();
+
+    // Default performance JSON
+    const performance = {
+      exams: [],
+      averageScore: 0,
+      lastUpdated: null,
+    };
+
+    // Detect school type → term / semester
+    let term: string | null = null;
+    let semester: string | null = null;
+
+    if (school.schoolType === "HIGH_SCHOOL") term = "First Term";
+    else if (school.schoolType === "TERTIARY") semester = "First Semester";
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create student
+    const newStudent = await prisma.student.create({
+      data: {
+        rollNumber, // ✅ System-generated
+        admissionNo, // ✅ Provided by school
+        firstName,
+        lastName,
+        gender,
+        email,
+        password: hashedPassword,
+        contactNumber,
+        dob: dob ? new Date(dob) : null,
+        academicYear,
+        level,
+        term,
+        semester,
+        schoolId: Number(schoolId),
+        performance,
+        approvalStatus: "pending",
+        approvedBy: null,
+        approvedAt: null,
+        subdomain: school.subdomain,
+      },
     });
-    res.json(student);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
 
-// Delete student
-export const deleteStudent = async (req: Request, res: Response) => {
-  try {
-    await prisma.student.delete({ where: { id: Number(req.params.id) } });
-    res.json({ message: "Student deleted" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(201).json({
+      message: "Student created successfully",
+      student: newStudent,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error });
   }
 };

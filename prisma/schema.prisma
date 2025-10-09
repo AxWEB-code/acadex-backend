@@ -3,40 +3,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
-
 model School {
-  id                Int          @id @default(autoincrement())
+  id                Int        @id @default(autoincrement())
   name              String
-  subdomain         String       @unique
+  subdomain         String     @unique
   logo              String?
-  schoolCode        String       @unique
-  schoolType        SchoolType   @default(CBT) // HIGH_SCHOOL | TERTIARY | CBT
-  plan              String       @default("free")
+  schoolCode        String     @unique
+  schoolType        SchoolType @default(CBT) // HIGH_SCHOOL | TERTIARY | CBT
+  plan              String     @default("free")
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
 
   // Default settings & preferences
-  settings          Json?        // Stores editable defaults (exam mode, grading, etc.)
-  permissions       Json?        // Stores permission templates per role (editable)
-  analytics         Json?        // Stores student, exam, and result counts
+  settings    Json? // Stores editable defaults (exam mode, grading, etc.)
+  permissions Json? // Stores permission templates per role (editable)
+  analytics   Json? // Stores student, exam, and result counts
 
   // Admin configuration
-  adminEmail        String?
-  adminPassword     String?      // hashed
-  adminRoles        Json?        // { mainAdmin, examAdmin, resultAdmin, admissionAdmin }
+  adminEmail    String?
+  adminPassword String? // hashed
+  adminRoles    Json? // { mainAdmin, examAdmin, resultAdmin, admissionAdmin }
 
   // Relations
-  students          Student[]
-  exams             Exam[]
+  students Student[]
+  exams    Exam[]
 
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  departments Department[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum SchoolType {
@@ -45,34 +44,73 @@ enum SchoolType {
   CBT
 }
 
-
-
-model Student {
-  id             Int       @id @default(autoincrement())
-  admissionNo    String    @unique
-  password       String
-  firstName      String
-  lastName       String
-  dob            DateTime?
-  academicYear   String?
-  rollNumber     String?
-  status         String?
-  class          String?
-  department     String?
-  contactNumber  String?
-  email          String    @unique
-  category       String?
-  approvalStatus String?   @default("pending")
-
-  school   School @relation(fields: [schoolId], references: [id])
-  schoolId Int
-
-  results     Result[]           @relation("StudentResults")
-  accessCodes ResultAccessCode[]
-
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  code      String?
+  schoolId  Int // This links to School.id (which is Int)
+  school    School   @relation(fields: [schoolId], references: [id])
+  students  Student[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Student {
+  id             Int       @id @default(autoincrement())
+  rollNumber     String    @unique           // ← new field (auto-generated)
+  admissionNo    String    @unique           // ← entered by student
+  password       String
+  firstName      String
+  lastName       String
+  gender         String
+
+  email          String    @unique
+  contactNumber  String?
+  dob            DateTime?
+  
+  // 🎓 Academic Structure
+  academicYear   String?
+  level          String?   // SS1, 100 Level, etc.
+  term           String?   // Only used if schoolType = HIGH_SCHOOL
+  semester       String?   // Only used if schoolType = TERTIARY
+  class          String?   // Optional — e.g. "Science A", "Set B"
+
+  // 🔗 Relations
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  schoolId       Int
+  school         School @relation(fields: [schoolId], references: [id])
+
+  // ⚙️ Status & Approval
+  approvalStatus String    @default("pending")
+  isActive       Boolean   @default(true)
+  approvedBy     String?
+  approvedAt     DateTime?
+
+  // 📊 Performance Analytics
+  performance Json?
+
+  // 🔐 Authentication & Security
+  loginAttempts     Int? @default(0)
+  lastLogin         DateTime?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+
+  // 🌍 Multi-School Support
+  subdomain String?
+
+  // 🕒 Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 🔗 Relationships
+  results      Result[]           @relation("StudentResults")
+  accessCodes  ResultAccessCode[]
+  examsTaken   Exam[]
+  notifications Notification[]    @relation("StudentNotifications")
+}
+
+
 
 model Exam {
   id         Int      @id @default(autoincrement())
@@ -90,6 +128,7 @@ model Exam {
   results     Result[]           @relation("ExamResults")
   questions   ExamQuestion[]
   accessCodes ResultAccessCode[] // <-- back-relation added
+ students    Student[]
 
   school   School @relation(fields: [schoolId], references: [id])
   schoolId Int
@@ -180,5 +219,16 @@ model ResultAccessCode {
   maxUses   Int    @default(3)
   usedCount Int    @default(0)
 
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  studentId Int
+  student   Student  @relation("StudentNotifications", fields: [studentId], references: [id])
   createdAt DateTime @default(now())
 }

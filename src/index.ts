@@ -19,10 +19,8 @@ try {
   const schoolRoutes = require("./routes/schoolRoutes").default;
   const departmentRoutes = require("./routes/departmentRoutes").default;
   const studentRoutes = require("./routes/studentRoutes").default;
-
-  // 🆕 You’ll later add:
-  // const authRoutes = require("./routes/authRoutes").default;
-  // const approvalRoutes = require("./routes/approvalRoutes").default;
+  const authRoutes = require("./routes/authRoutes").default;
+   const approvalRoutes = require("./routes/approvalRoutes").default;
   // const performanceRoutes = require("./routes/performanceRoutes").default;
 
   console.log("✅ Routes imported successfully");
@@ -31,8 +29,8 @@ try {
   app.use("/api/schools", schoolRoutes);
   app.use("/api/departments", departmentRoutes);
   app.use("/api/students", studentRoutes);
-  // app.use("/api/auth", authRoutes);
-  // app.use("/api/approvals", approvalRoutes);
+  app.use("/api/auth", authRoutes);
+   app.use("/api/approvals", approvalRoutes);
   // app.use("/api/performance", performanceRoutes);
 
   console.log("✅ Routes mounted successfully");

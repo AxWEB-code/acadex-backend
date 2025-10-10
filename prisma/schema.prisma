@@ -45,50 +45,48 @@ enum SchoolType {
 }
 
 model Department {
-  id        String   @id @default(cuid())
-  name      String
-  code      String?
-  schoolId  Int // This links to School.id (which is Int)
-  school    School   @relation(fields: [schoolId], references: [id])
-  students  Student[]
-  admissionFormatRegex  String?
-  admissionFormatPreview  String?
+  id                     String    @id @default(cuid())
+  name                   String
+  code                   String?
+  schoolId               Int // 
+  school                 School    @relation(fields: [schoolId], references: [id])
+  students               Student[]
+  admissionFormatRegex   String?
+  admissionFormatPreview String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Student {
-  id             Int       @id @default(autoincrement())
-  rollNumber     String    @unique           // ← new field (auto-generated)
-  admissionNo    String              // ← entered by student
+  id                   Int      @id @default(autoincrement())
+  rollNumber           String   @unique
+  admissionNo          String
   admissionFormatValid Boolean? @default(true)
 
+  role      String @default("student") // can be "student" or "admin"
+  status    String @default("pending") // pending, approved, rejected
+  password  String
+  firstName String
+  lastName  String
+  gender    String
 
-  
-  role          String    @default("student") // can be "student" or "admin"
-  status        String    @default("pending") // pending, approved, rejected
-  password       String
-  firstName      String
-  lastName       String
-  gender         String
+  email         String    @unique
+  contactNumber String?
+  dob           DateTime?
 
-  email          String    @unique
-  contactNumber  String?
-  dob            DateTime?
-  
   // 🎓 Academic Structure
-  academicYear   String?
-  level          String?   // SS1, 100 Level, etc.
-  term           String?   // Only used if schoolType = HIGH_SCHOOL
-  semester       String?   // Only used if schoolType = TERTIARY
-  class          String?   // Optional — e.g. "Science A", "Set B"
+  academicYear String?
+  level        String? // SS1, 100 Level, etc.
+  term         String? // Only used if schoolType = HIGH_SCHOOL
+  semester     String? // Only used if schoolType = TERTIARY
+  class        String? // Optional — e.g. "Science A", "Set B"
 
   // 🔗 Relations
-  departmentId   String?
-  department     Department? @relation(fields: [departmentId], references: [id])
-  schoolId       Int
-  school         School @relation(fields: [schoolId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  schoolId     Int
+  school       School      @relation(fields: [schoolId], references: [id])
 
   // ⚙️ Status & Approval
   approvalStatus String    @default("pending")
@@ -100,10 +98,10 @@ model Student {
   performance Json?
 
   // 🔐 Authentication & Security
-  loginAttempts     Int? @default(0)
-  lastLogin         DateTime?
-  resetToken        String?
-  resetTokenExpiry  DateTime?
+  loginAttempts    Int?      @default(0)
+  lastLogin        DateTime?
+  resetToken       String?
+  resetTokenExpiry DateTime?
 
   // 🌍 Multi-School Support
   subdomain String?
@@ -113,13 +111,11 @@ model Student {
   updatedAt DateTime @updatedAt
 
   // 🔗 Relationships
-  results      Result[]           @relation("StudentResults")
-  accessCodes  ResultAccessCode[]
-  examsTaken   Exam[]
-  notifications Notification[]    @relation("StudentNotifications")
+  results       Result[]           @relation("StudentResults")
+  accessCodes   ResultAccessCode[]
+  examsTaken    Exam[]
+  notifications Notification[]     @relation("StudentNotifications")
 }
-
-
 
 model Exam {
   id         Int      @id @default(autoincrement())
@@ -137,7 +133,7 @@ model Exam {
   results     Result[]           @relation("ExamResults")
   questions   ExamQuestion[]
   accessCodes ResultAccessCode[] // <-- back-relation added
- students    Student[]
+  students    Student[]
 
   school   School @relation(fields: [schoolId], references: [id])
   schoolId Int

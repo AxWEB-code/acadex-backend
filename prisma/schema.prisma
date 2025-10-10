@@ -51,6 +51,9 @@ model Department {
   schoolId  Int // This links to School.id (which is Int)
   school    School   @relation(fields: [schoolId], references: [id])
   students  Student[]
+  admissionFormatRegex  String?
+  admissionFormatPreview  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -58,7 +61,13 @@ model Department {
 model Student {
   id             Int       @id @default(autoincrement())
   rollNumber     String    @unique           // ← new field (auto-generated)
-  admissionNo    String    @unique           // ← entered by student
+  admissionNo    String              // ← entered by student
+  admissionFormatValid Boolean? @default(true)
+
+
+  
+  role          String    @default("student") // can be "student" or "admin"
+  status        String    @default("pending") // pending, approved, rejected
   password       String
   firstName      String
   lastName       String

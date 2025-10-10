@@ -100,3 +100,33 @@ export const deleteDepartment = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to delete department" });
   }
 };
+
+// controllers/departmentController.ts
+
+export const setAdmissionFormat = async (req: Request, res: Response) => {
+  try {
+    const { departmentId, formatPreview } = req.body;
+
+    if (!departmentId || !formatPreview)
+      return res.status(400).json({ message: "Missing required fields" });
+
+    // Convert preview (ECNS/AD/2024/001) into regex
+    const prefix = formatPreview.split("/")[0]; // e.g. ECNS
+    const regex = `^${prefix}\\/AD\\/\\d{4}\\/\\d{3}$`;
+
+    const updated = await prisma.department.update({
+      where: { id: departmentId},
+      data: {
+        admissionFormatPreview: formatPreview,
+        admissionFormatRegex: regex,
+      },
+    });
+
+    res.json({
+      message: "Admission format set successfully",
+      department: updated,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error setting format", error: error.message });
+  }
+};

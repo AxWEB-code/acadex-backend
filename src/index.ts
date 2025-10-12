@@ -1,6 +1,13 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import schoolRoutes from "./routes/schoolRoutes";
+import departmentRoutes from "./routes/departmentRoutes";
+import studentRoutes from "./routes/studentRoutes";
+import authRoutes from "./routes/authRoutes";
+import approvalRoutes from "./routes/approvalRoutes";
+import { protect, isAdmin } from "./middleware/authMiddleware";
+import examRoutes from "./modules/exam/examRoutes";
 
 dotenv.config();
 
@@ -12,32 +19,15 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ✅ Import Routes
-try {
-  console.log("🔄 Importing routes...");
+// ✅ Mount routes
+app.use("/api/schools", schoolRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/approvals", approvalRoutes);
+app.use("/api/exams", examRoutes);
 
-  const schoolRoutes = require("./routes/schoolRoutes").default;
-  const departmentRoutes = require("./routes/departmentRoutes").default;
-  const studentRoutes = require("./routes/studentRoutes").default;
-  const authRoutes = require("./routes/authRoutes").default;
-   const approvalRoutes = require("./routes/approvalRoutes").default;
-  // const performanceRoutes = require("./routes/performanceRoutes").default;
-
-  console.log("✅ Routes imported successfully");
-
-  // ✅ Mount routes
-  app.use("/api/schools", schoolRoutes);
-  app.use("/api/departments", departmentRoutes);
-  app.use("/api/students", studentRoutes);
-  app.use("/api/auth", authRoutes);
-   app.use("/api/approvals", approvalRoutes);
-  // app.use("/api/performance", performanceRoutes);
-
-  console.log("✅ Routes mounted successfully");
-} catch (error) {
-  console.error("❌ Error importing routes:", error);
-  process.exit(1);
-}
+console.log("✅ Routes mounted successfully");
 
 // ✅ Root route
 app.get("/", (req, res) => {
@@ -52,8 +42,7 @@ app.get("/test", (req, res) => {
   res.json({ message: "✅ Test route works!" });
 });
 
-import { protect, isAdmin } from "./middleware/authMiddleware";
-
+// ✅ Protected routes
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "✅ You are authenticated", user: (req as any).user });
 });
@@ -61,7 +50,6 @@ app.get("/api/protected", protect, (req, res) => {
 app.get("/api/admin-only", protect, isAdmin, (req, res) => {
   res.json({ message: "✅ You are an admin" });
 });
-
 
 // ✅ Start Server
 const PORT = process.env.PORT || 8000;

@@ -13,29 +13,21 @@ model School {
   subdomain         String     @unique
   logo              String?
   schoolCode        String     @unique
-  schoolType        SchoolType @default(CBT) // HIGH_SCHOOL | TERTIARY | CBT
+  schoolType        SchoolType @default(CBT)
   plan              String     @default("free")
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
-
-  // Default settings & preferences
-  settings    Json? // Stores editable defaults (exam mode, grading, etc.)
-  permissions Json? // Stores permission templates per role (editable)
-  analytics   Json? // Stores student, exam, and result counts
-
-  // Admin configuration
-  adminEmail    String?
-  adminPassword String? // hashed
-  adminRoles    Json? // { mainAdmin, examAdmin, resultAdmin, admissionAdmin }
-
-  // Relations
-  students Student[]
-  exams    Exam[]
-
-  departments Department[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  settings          Json?
+  permissions       Json?
+  analytics         Json?
+  adminEmail        String?
+  adminPassword     String?
+  adminRoles        Json?
+  students          Student[]
+  exams             Exam[]
+  departments       Department[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 }
 
 enum SchoolType {
@@ -48,144 +40,166 @@ model Department {
   id                     String    @id @default(cuid())
   name                   String
   code                   String?
-  schoolId               Int // 
+  schoolId               Int
   school                 School    @relation(fields: [schoolId], references: [id])
   students               Student[]
+  courses                Course[]
   admissionFormatRegex   String?
   admissionFormatPreview String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Course {
+  id           String   @id @default(cuid())
+  name         String
+  code         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  questions    ExamQuestion[]
+  results      ExamResult[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Student {
-  id                   Int      @id @default(autoincrement())
-  rollNumber           String   @unique
+  id                   Int       @id @default(autoincrement())
+  rollNumber           String    @unique
   admissionNo          String
-  admissionFormatValid Boolean? @default(true)
+  admissionFormatValid Boolean?  @default(true)
+  role                 String    @default("student")
+  status               String    @default("pending")
+  password             String
+  firstName            String
+  lastName             String
+  gender               String
+  email                String    @unique
+  contactNumber        String?
+  dob                  DateTime?
+  academicYear         String?
+  level                String?
+  term                 String?
+  semester             String?
+  class                String?
+  departmentId         String?
+  department           Department? @relation(fields: [departmentId], references: [id])
+  schoolId             Int
+  school               School    @relation(fields: [schoolId], references: [id])
+  approvalStatus       String    @default("pending")
+  isActive             Boolean   @default(true)
+  approvedBy           String?
+  approvedAt           DateTime?
+  performance          Json?
+  loginAttempts        Int?      @default(0)
+  lastLogin            DateTime?
+  resetToken           String?
+  resetTokenExpiry     DateTime?
+  subdomain            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  role      String @default("student") // can be "student" or "admin"
-  status    String @default("pending") // pending, approved, rejected
-  password  String
-  firstName String
-  lastName  String
-  gender    String
-
-  email         String    @unique
-  contactNumber String?
-  dob           DateTime?
-
-  // 🎓 Academic Structure
-  academicYear String?
-  level        String? // SS1, 100 Level, etc.
-  term         String? // Only used if schoolType = HIGH_SCHOOL
-  semester     String? // Only used if schoolType = TERTIARY
-  class        String? // Optional — e.g. "Science A", "Set B"
-
-  // 🔗 Relations
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-  schoolId     Int
-  school       School      @relation(fields: [schoolId], references: [id])
-
-  // ⚙️ Status & Approval
-  approvalStatus String    @default("pending")
-  isActive       Boolean   @default(true)
-  approvedBy     String?
-  approvedAt     DateTime?
-
-  // 📊 Performance Analytics
-  performance Json?
-
-  // 🔐 Authentication & Security
-  loginAttempts    Int?      @default(0)
-  lastLogin        DateTime?
-  resetToken       String?
-  resetTokenExpiry DateTime?
-
-  // 🌍 Multi-School Support
-  subdomain String?
-
-  // 🕒 Metadata
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // 🔗 Relationships
-  results       Result[]           @relation("StudentResults")
-  accessCodes   ResultAccessCode[]
-  examsTaken    Exam[]
-  notifications Notification[]     @relation("StudentNotifications")
+  results              Result[]           @relation("StudentResults")
+  accessCodes          ResultAccessCode[]
+  examsTaken           Exam[]
+  notifications        Notification[]     @relation("StudentNotifications")
+  examResults          ExamResult[]
 }
 
 model Exam {
-  id         Int      @id @default(autoincrement())
-  title      String
-  type       String
-  department String
-  className  String
-  semester   String
-  startDate  DateTime
-  endDate    DateTime
-  examYear   Int
-  timer      Int?
+  id             String        @id @default(cuid())
+  examTitle      String
+  examCode       String        @unique
+  mode           ExamMode
+  examTypes      ExamType[]
+  departmentId   String?
+  levelId        String?
+  classId        String?
+  sessionYear    String
+  startDate      DateTime
+  endDate        DateTime
+  duration       Int
+  isResit        Boolean       @default(false)
+  linkedExamId   String?
+  status         ExamStatus    @default(PENDING)
+  createdById    String
+  schoolId       Int
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  courses     ExamCourse[]
-  results     Result[]           @relation("ExamResults")
-  questions   ExamQuestion[]
-  accessCodes ResultAccessCode[] // <-- back-relation added
-  students    Student[]
+  // Relations
+  questions      ExamQuestion[]
+  results        ExamResult[]
+  notifications  ExamNotification[]
+  school         School        @relation(fields: [schoolId], references: [id])
+  students       Student[]
+  examResults    Result[]      @relation("ExamResults")  // ✅ FIXED: Same relation name
+  accessCodes    ResultAccessCode[]
 
-  school   School @relation(fields: [schoolId], references: [id])
-  schoolId Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([examCode])
 }
 
-model ExamCourse {
-  id         Int    @id @default(autoincrement())
-  exam       Exam   @relation(fields: [examId], references: [id])
-  examId     Int
-  courseName String
+enum ExamMode {
+  ONLINE
+  OFFLINE
+}
 
-  questions ExamQuestion[]
+enum ExamStatus {
+  PENDING
+  APPROVED
+  LIVE
+  CLOSED
+}
+
+enum ExamType {
+  OBJECTIVE
+  THEORY
+  PRACTICAL
 }
 
 model ExamQuestion {
-  id            Int          @id @default(autoincrement())
-  exam          Exam         @relation(fields: [examId], references: [id])
-  examId        Int
-  course        ExamCourse   @relation(fields: [courseId], references: [id])
-  courseId      Int
-  question      String
-  questionType  QuestionType
-  questionImage String?
-  correctOption OptionLetter
+  id            String    @id @default(cuid())
+  examId        String
+  courseId      String
+  questionType  ExamType
+  questionText  String?
+  questionFile  String?
+  correctAnswer String?
+  marks         Int?
+  createdAt     DateTime  @default(now())
 
-  options ExamOption[]
-
-  createdAt DateTime @default(now())
+  exam          Exam      @relation(fields: [examId], references: [id])
+  course        Course    @relation(fields: [courseId], references: [id])
 }
 
-model ExamOption {
-  id           Int          @id @default(autoincrement())
-  question     ExamQuestion @relation(fields: [questionId], references: [id])
-  questionId   Int
-  optionText   String
-  isCorrect    Boolean      @default(false)
-  optionLetter OptionLetter
+model ExamResult {
+  id           String    @id @default(cuid())
+  examId       String
+  studentId    Int
+  courseId     String
+  score        Float?
+  status       ResultStatus @default(PENDING)
+  isResit      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  exam         Exam      @relation(fields: [examId], references: [id])
+  student      Student   @relation(fields: [studentId], references: [id])
+  course       Course    @relation(fields: [courseId], references: [id])
 }
 
-enum QuestionType {
-  Objective
-  Subjective
+enum ResultStatus {
+  PENDING
+  PASSED
+  FAILED
 }
 
-enum OptionLetter {
-  A
-  B
-  C
-  D
+model ExamNotification {
+  id        String    @id @default(cuid())
+  examId    String
+  message   String
+  read      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  exam      Exam      @relation(fields: [examId], references: [id])
 }
 
 model Result {
@@ -202,13 +216,13 @@ model Result {
   remarks      String?
   created_at   DateTime @default(now())
 
-  student   Student @relation("StudentResults", fields: [studentId], references: [id])
-  studentId Int
+  student      Student  @relation("StudentResults", fields: [studentId], references: [id])
+  studentId    Int
 
-  exam   Exam @relation("ExamResults", fields: [examId], references: [id])
-  examId Int
+  exam         Exam     @relation("ExamResults", fields: [examId], references: [id])
+  examId       String
 
-  accessCodes ResultAccessCode[]
+  accessCodes  ResultAccessCode[]
 }
 
 model ResultAccessCode {
@@ -216,7 +230,7 @@ model ResultAccessCode {
   student   Student @relation(fields: [studentId], references: [id])
   studentId Int
   exam      Exam    @relation(fields: [examId], references: [id])
-  examId    Int
+  examId    String
   result    Result? @relation(fields: [resultId], references: [id])
   resultId  Int?
 

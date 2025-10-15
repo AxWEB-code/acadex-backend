@@ -157,6 +157,7 @@ export const approveExam = async (id: string) => {
   return updatedExam;
 };
 
+
 export const updateExamStatus = async (id: string, status: string) => {
   const validStatuses = ["PENDING", "APPROVED", "LIVE", "CLOSED"];
   if (!validStatuses.includes(status)) {

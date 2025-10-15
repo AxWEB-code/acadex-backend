@@ -8,6 +8,8 @@ import authRoutes from "./routes/authRoutes";
 import approvalRoutes from "./routes/approvalRoutes";
 import { protect, isAdmin } from "./middleware/authMiddleware";
 import examRoutes from "./modules/exam/examRoutes";
+import offlineRoutes from "./modules/offline/offlineRoutes";
+import syncRoutes from "./sync/syncRoutes";
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use("/api/students", studentRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/exams", examRoutes);
+app.use("/api/offline", offlineRoutes);
+router.use("/sync", syncRoutes);
 
 console.log("✅ Routes mounted successfully");
 

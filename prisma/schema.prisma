@@ -8,13 +8,13 @@ generator client {
 }
 
 model School {
-  id                Int        @id @default(autoincrement())
+  id                Int          @id @default(autoincrement())
   name              String
-  subdomain         String     @unique
+  subdomain         String       @unique
   logo              String?
-  schoolCode        String     @unique
-  schoolType        SchoolType @default(CBT)
-  plan              String     @default("free")
+  schoolCode        String       @unique
+  schoolType        SchoolType   @default(CBT)
+  plan              String       @default("free")
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
   settings          Json?
@@ -26,8 +26,8 @@ model School {
   students          Student[]
   exams             Exam[]
   departments       Department[]
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 }
 
 enum SchoolType {
@@ -46,34 +46,34 @@ model Department {
   courses                Course[]
   admissionFormatRegex   String?
   admissionFormatPreview String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model Course {
-  id           String   @id @default(cuid())
+  id           String         @id @default(cuid())
   name         String
   code         String
   departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
+  department   Department     @relation(fields: [departmentId], references: [id])
   questions    ExamQuestion[]
   results      ExamResult[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 }
 
 model Student {
-  id                   Int       @id @default(autoincrement())
-  rollNumber           String    @unique
+  id                   Int         @id @default(autoincrement())
+  rollNumber           String      @unique
   admissionNo          String
-  admissionFormatValid Boolean?  @default(true)
-  role                 String    @default("student")
-  status               String    @default("pending")
+  admissionFormatValid Boolean?    @default(true)
+  role                 String      @default("student")
+  status               String      @default("pending")
   password             String
   firstName            String
   lastName             String
   gender               String
-  email                String    @unique
+  email                String      @unique
   contactNumber        String?
   dob                  DateTime?
   academicYear         String?
@@ -84,56 +84,56 @@ model Student {
   departmentId         String?
   department           Department? @relation(fields: [departmentId], references: [id])
   schoolId             Int
-  school               School    @relation(fields: [schoolId], references: [id])
-  approvalStatus       String    @default("pending")
-  isActive             Boolean   @default(true)
+  school               School      @relation(fields: [schoolId], references: [id])
+  approvalStatus       String      @default("pending")
+  isActive             Boolean     @default(true)
   approvedBy           String?
   approvedAt           DateTime?
   performance          Json?
-  loginAttempts        Int?      @default(0)
+  loginAttempts        Int?        @default(0)
   lastLogin            DateTime?
   resetToken           String?
   resetTokenExpiry     DateTime?
   subdomain            String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
-  results              Result[]           @relation("StudentResults")
-  accessCodes          ResultAccessCode[]
-  examsTaken           Exam[]
-  notifications        Notification[]     @relation("StudentNotifications")
-  examResults          ExamResult[]
+  results       Result[]           @relation("StudentResults")
+  accessCodes   ResultAccessCode[]
+  examsTaken    Exam[]
+  notifications Notification[]     @relation("StudentNotifications")
+  examResults   ExamResult[]
 }
 
 model Exam {
-  id             String        @id @default(cuid())
-  examTitle      String
-  examCode       String        @unique
-  mode           ExamMode
-  examTypes      ExamType[]
-  departmentId   String?
-  levelId        String?
-  classId        String?
-  sessionYear    String
-  startDate      DateTime
-  endDate        DateTime
-  duration       Int
-  isResit        Boolean       @default(false)
-  linkedExamId   String?
-  status         ExamStatus    @default(PENDING)
-  createdById    String
-  schoolId       Int
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id           String     @id @default(cuid())
+  examTitle    String
+  examCode     String     @unique
+  mode         ExamMode
+  examTypes    ExamType[]
+  departmentId String?
+  levelId      String?
+  classId      String?
+  sessionYear  String
+  startDate    DateTime
+  endDate      DateTime
+  duration     Int
+  isResit      Boolean    @default(false)
+  linkedExamId String?
+  status       ExamStatus @default(PENDING)
+  createdById  String
+  schoolId     Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   // Relations
-  questions      ExamQuestion[]
-  results        ExamResult[]
-  notifications  ExamNotification[]
-  school         School        @relation(fields: [schoolId], references: [id])
-  students       Student[]
-  examResults    Result[]      @relation("ExamResults")  // ✅ FIXED: Same relation name
-  accessCodes    ResultAccessCode[]
+  questions     ExamQuestion[]
+  results       ExamResult[]
+  notifications ExamNotification[]
+  school        School             @relation(fields: [schoolId], references: [id])
+  students      Student[]
+  examResults   Result[]           @relation("ExamResults") // ✅ FIXED: Same relation name
+  accessCodes   ResultAccessCode[]
 
   @@index([examCode])
 }
@@ -157,7 +157,7 @@ enum ExamType {
 }
 
 model ExamQuestion {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   examId        String
   courseId      String
   questionType  ExamType
@@ -165,25 +165,25 @@ model ExamQuestion {
   questionFile  String?
   correctAnswer String?
   marks         Int?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
 
-  exam          Exam      @relation(fields: [examId], references: [id])
-  course        Course    @relation(fields: [courseId], references: [id])
+  exam   Exam   @relation(fields: [examId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
 }
 
 model ExamResult {
-  id           String    @id @default(cuid())
-  examId       String
-  studentId    Int
-  courseId     String
-  score        Float?
-  status       ResultStatus @default(PENDING)
-  isResit      Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  id        String       @id @default(cuid())
+  examId    String
+  studentId Int
+  courseId  String
+  score     Float?
+  status    ResultStatus @default(PENDING)
+  isResit   Boolean      @default(false)
+  createdAt DateTime     @default(now())
 
-  exam         Exam      @relation(fields: [examId], references: [id])
-  student      Student   @relation(fields: [studentId], references: [id])
-  course       Course    @relation(fields: [courseId], references: [id])
+  exam    Exam    @relation(fields: [examId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  course  Course  @relation(fields: [courseId], references: [id])
 }
 
 enum ResultStatus {
@@ -193,13 +193,13 @@ enum ResultStatus {
 }
 
 model ExamNotification {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   examId    String
   message   String
-  read      Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  exam      Exam      @relation(fields: [examId], references: [id])
+  exam Exam @relation(fields: [examId], references: [id])
 }
 
 model Result {
@@ -216,13 +216,13 @@ model Result {
   remarks      String?
   created_at   DateTime @default(now())
 
-  student      Student  @relation("StudentResults", fields: [studentId], references: [id])
-  studentId    Int
+  student   Student @relation("StudentResults", fields: [studentId], references: [id])
+  studentId Int
 
-  exam         Exam     @relation("ExamResults", fields: [examId], references: [id])
-  examId       String
+  exam   Exam   @relation("ExamResults", fields: [examId], references: [id])
+  examId String
 
-  accessCodes  ResultAccessCode[]
+  accessCodes ResultAccessCode[]
 }
 
 model ResultAccessCode {

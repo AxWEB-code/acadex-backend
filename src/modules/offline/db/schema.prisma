@@ -1,0 +1,52 @@
+// src/modules/offline/db/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../prisma/offline-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./offline.db"
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  name        String
+  admissionNo String
+  department  String
+  results   Result[]  @relation("StudentResults")
+  level       String
+  createdAt   DateTime @default(now())
+}
+
+model Exam {
+  id          String   @id @default(cuid())
+  examTitle   String
+  examCode    String
+  startDate   DateTime
+  endDate     DateTime
+  duration    Int
+  isOffline   Boolean  @default(true)
+  questions   Question[]
+  results     Result[]
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  text      String
+  options   Json
+  answer    String
+  examId    String
+  exam      Exam     @relation(fields: [examId], references: [id])
+}
+
+model Result {
+  id         String   @id @default(cuid())
+  score      Int
+  studentId  String?
+  examId     String?
+  synced     Boolean  @default(false)
+  student    Student? @relation("StudentResults", fields: [studentId], references: [id])
+  exam       Exam?    @relation(fields: [examId], references: [id])
+}
+

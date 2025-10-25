@@ -52,7 +52,6 @@ export const rejectStudent = async (req: Request, res: Response) => {
         approvedBy: admin?.schoolId
           ? `school-${admin.schoolId}`
           : `admin-${admin?.id ?? "unknown"}`,
-        rejectionNote: reason || "No reason provided", // ✅ optional text field for audit
         isActive: false,
       },
     });

@@ -1,5 +1,5 @@
-import { PrismaClient as OfflineClient } from "../../prisma/offline-client";
-const offlineDB = new OfflineClient();
+import { PrismaClient } from "../../prisma/offline-client";
+const offlineDB = new PrismaClient(); // ✅ Fixed name
 
 /**
  * Create local exam
@@ -30,6 +30,6 @@ export const getUnsyncedResults = async () => {
 export const markResultsAsSynced = async (ids: string[]) => {
   await offlineDB.result.updateMany({
     where: { id: { in: ids } },
-    data: { synced: true }
+    data: { synced: true },
   });
 };

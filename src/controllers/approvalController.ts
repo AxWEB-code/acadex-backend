@@ -45,16 +45,15 @@ export const rejectStudent = async (req: Request, res: Response) => {
     const admin = (req as any).user;
 
     const updated = await prisma.student.update({
-      where: { id: Number(id) },
-      data: {
-        approvalStatus: "rejected",
-        approvedAt: new Date(),
-        approvedBy: admin?.schoolId
-          ? `school-${admin.schoolId}`
-          : `admin-${admin?.id ?? "unknown"}`,
-        isActive: false,
-      },
-    });
+  where: { id: Number(id) },
+  data: {
+    approvalStatus: "rejected",
+    approvedAt: new Date(),
+    approvedBy: admin?.schoolId ? `school-${admin.schoolId}` : `admin-${admin?.id ?? "unknown"}`,
+    isActive: false,
+  },
+});
+
 
     return res.json({ message: "🚫 Student rejected", student: updated });
   } catch (err: any) {

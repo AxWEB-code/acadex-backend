@@ -1,11 +1,14 @@
 {
   "name": "acadex-backend",
   "version": "1.0.0",
-  "description": "��#\u0000 \u0000A\u0000c\u0000a\u0000d\u0000e\u0000X\u0000 \u0000B\u0000a\u0000c\u0000k\u0000e\u0000n\u0000d\u0000\r\u0000 \u0000",
+  "description": "AcadeX Backend",
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
+    "generate:main": "prisma generate",
+    "generate:offline": "prisma generate --schema=src/modules/offline/db/schema.prisma",
+    "prebuild": "npm run generate:main && npm run generate:offline",
     "start": "node dist/index.js"
   },
   "repository": {

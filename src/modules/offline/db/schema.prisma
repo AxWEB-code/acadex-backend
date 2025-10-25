@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../../prisma/offline-client"  // ✅ move outside src/
+  output   = "../../../../prisma/offline-client" 
 }
 
 

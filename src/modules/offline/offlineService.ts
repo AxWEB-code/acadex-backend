@@ -1,5 +1,5 @@
-import { PrismaClient } from "../prisma/offline-client";
-const offlineDB = new PrismaClient(); // ✅ Fixed name
+import { PrismaClient } from "../../../prisma/offline-client";
+const offlineDB = new PrismaClient();
 
 /**
  * Create local exam

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
-import prisma from "../../prisma/client";  // if controller is inside src/controllers
+import prisma from "../prisma";
+
+ // if controller is inside src/controllers
 
 
 

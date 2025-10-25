@@ -31,3 +31,6 @@ export const getOfflineUnsyncedHandler = async (_req: Request, res: Response) =>
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+export default router;
+

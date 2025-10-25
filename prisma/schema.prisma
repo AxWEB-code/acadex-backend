@@ -103,6 +103,7 @@ model Student {
   examsTaken    Exam[]
   notifications Notification[]     @relation("StudentNotifications")
   examResults   ExamResult[]
+  
 }
 
 model Exam {

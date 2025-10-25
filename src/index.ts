@@ -1,6 +1,8 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+
+// ✅ Route Imports
 import schoolRoutes from "./routes/schoolRoutes";
 import departmentRoutes from "./routes/departmentRoutes";
 import studentRoutes from "./routes/studentRoutes";
@@ -9,7 +11,7 @@ import approvalRoutes from "./routes/approvalRoutes";
 import { protect, isAdmin } from "./middleware/authMiddleware";
 import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
-import syncRoutes from "./sync/syncRoutes";
+import syncRoutes from "./modules/offline/sync/syncRoutes"; // ✅ corrected path
 
 dotenv.config();
 
@@ -29,12 +31,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/offline", offlineRoutes);
-router.use("/sync", syncRoutes);
+app.use("/api/sync", syncRoutes); // ✅ fixed router.use → app.use
 
 console.log("✅ Routes mounted successfully");
 
 // ✅ Root route
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.json({
     status: "OK",
     message: "🎓 AcadeX API is running successfully!",
@@ -42,21 +44,24 @@ app.get("/", (req, res) => {
 });
 
 // ✅ Test route
-app.get("/test", (req, res) => {
+app.get("/test", (req: Request, res: Response) => {
   res.json({ message: "✅ Test route works!" });
 });
 
 // ✅ Protected routes
-app.get("/api/protected", protect, (req, res) => {
-  res.json({ message: "✅ You are authenticated", user: (req as any).user });
+app.get("/api/protected", protect, (req: Request, res: Response) => {
+  res.json({
+    message: "✅ You are authenticated",
+    user: (req as any).user,
+  });
 });
 
-app.get("/api/admin-only", protect, isAdmin, (req, res) => {
+app.get("/api/admin-only", protect, isAdmin, (req: Request, res: Response) => {
   res.json({ message: "✅ You are an admin" });
 });
 
 // ✅ Start Server
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Test URL: http://localhost:${PORT}/test`);

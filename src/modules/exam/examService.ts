@@ -1,6 +1,10 @@
-import prisma from "../../prisma";
+import prisma from "../../prisma"; // ✅ fixed relative path
+import { ExamStatus } from "@prisma/client"; // ✅ import enum type
 import { generateExamCode, validateExamData } from "./examUtils";
 
+/**
+ * ✅ Create a new exam (handles normal + resit exams)
+ */
 export const createExam = async (data: any) => {
   const errors = validateExamData(data);
   if (errors.length > 0) {
@@ -21,7 +25,7 @@ export const createExam = async (data: any) => {
     isResit,
     linkedExamCode,
     createdById,
-    schoolId
+    schoolId,
   } = data;
 
   const examCode = generateExamCode(isResit);
@@ -39,27 +43,25 @@ export const createExam = async (data: any) => {
     duration,
     isResit,
     createdById,
-    schoolId: Number(schoolId)
+    schoolId: Number(schoolId),
   };
 
-  // Handle resit exam logic
+  // ✅ Handle resit exam logic
   if (isResit && linkedExamCode) {
     const linkedExam = await prisma.exam.findUnique({
       where: { examCode: linkedExamCode },
-      include: { results: true }
+      include: { results: true },
     });
 
     if (!linkedExam) throw new Error("Linked exam not found");
 
-    // Get failed courses (you can customize the passing score)
+    // Get failed courses
     const failedCourses = linkedExam.results
       .filter((result: any) => (result.score || 0) < 50)
       .map((result: any) => result.courseId);
 
     baseData.linkedExamId = linkedExam.id;
     baseData.examTitle = `${linkedExam.examTitle} (Resit)`;
-    
-    // Store failed courses in metadata (you can create a separate field for this)
     baseData.failedCourses = failedCourses;
   }
 
@@ -68,19 +70,22 @@ export const createExam = async (data: any) => {
     include: {
       school: true,
       questions: true,
-      results: true
-    }
+      results: true,
+    },
   });
 
   return newExam;
 };
 
+/**
+ * ✅ Get paginated exams with filters
+ */
 export const getExams = async (filters: any = {}) => {
   const { schoolId, status, page = 1, limit = 10 } = filters;
-  
+
   const where: any = {};
   if (schoolId) where.schoolId = Number(schoolId);
-  if (status) where.status = status;
+  if (status) where.status = status as ExamStatus; // ✅ enum-safe cast
 
   const exams = await prisma.exam.findMany({
     where,
@@ -88,16 +93,11 @@ export const getExams = async (filters: any = {}) => {
       school: true,
       questions: true,
       results: true,
-      _count: {
-        select: {
-          questions: true,
-          results: true
-        }
-      }
+      _count: { select: { questions: true, results: true } },
     },
     skip: (Number(page) - 1) * Number(limit),
     take: Number(limit),
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
   });
 
   const total = await prisma.exam.count({ where });
@@ -108,65 +108,70 @@ export const getExams = async (filters: any = {}) => {
       page: Number(page),
       limit: Number(limit),
       total,
-      pages: Math.ceil(total / Number(limit))
-    }
+      pages: Math.ceil(total / Number(limit)),
+    },
   };
 };
 
+/**
+ * ✅ Get single exam with all relationships
+ */
 export const getExamById = async (id: string) => {
   const exam = await prisma.exam.findUnique({
     where: { id },
     include: {
       school: true,
-      questions: {
-        include: {
-          course: true
-        }
-      },
-      results: {
-        include: {
-          student: true,
-          course: true
-        }
-      },
-      notifications: true
-    }
+      questions: { include: { course: true } },
+      results: { include: { student: true, course: true } },
+      notifications: true,
+    },
   });
 
   if (!exam) throw new Error("Exam not found");
   return exam;
 };
 
+/**
+ * ✅ Approve an exam
+ */
 export const approveExam = async (id: string) => {
   const exam = await prisma.exam.findUnique({ where: { id } });
   if (!exam) throw new Error("Exam not found");
 
   const updatedExam = await prisma.exam.update({
     where: { id },
-    data: { status: "APPROVED" }
+    data: { status: ExamStatus.APPROVED }, // ✅ enum-safe update
   });
 
   // Create notification
   await prisma.examNotification.create({
     data: {
       examId: id,
-      message: `Exam "${exam.examTitle}" has been approved and is now live.`
-    }
+      message: `Exam "${exam.examTitle}" has been approved and is now live.`,
+    },
   });
 
   return updatedExam;
 };
 
-
+/**
+ * ✅ Update exam status (enum-safe)
+ */
 export const updateExamStatus = async (id: string, status: string) => {
-  const validStatuses = ["PENDING", "APPROVED", "LIVE", "CLOSED"];
-  if (!validStatuses.includes(status)) {
+  const validStatuses: ExamStatus[] = [
+    ExamStatus.PENDING,
+    ExamStatus.APPROVED,
+    ExamStatus.LIVE,
+    ExamStatus.CLOSED,
+  ];
+
+  if (!validStatuses.includes(status as ExamStatus)) {
     throw new Error("Invalid status");
   }
 
   const exam = await prisma.exam.update({
     where: { id },
-    data: { status }
+    data: { status: status as ExamStatus },
   });
 
   return exam;

@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../prisma/offline-client";
+import { PrismaClient } from "../../../prisma/offline-client";
 const offlineDB = new PrismaClient();
 
 /**

@@ -1,8 +1,27 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import { PrismaClient } from "@prisma/client";
 
-// ✅ Route Imports
+// ✅ Initialize environment
+dotenv.config();
+console.log("🔄 Booting AcadeX backend...");
+
+const app = express();
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 4000;
+
+// ✅ Middleware
+app.use(cors());
+app.use(express.json());
+
+// ✅ Log each request (for Render debugging)
+app.use((req, _res, next) => {
+  console.log(`📩 ${req.method} ${req.url}`);
+  next();
+});
+
+// ✅ Import Routes
 import schoolRoutes from "./routes/schoolRoutes";
 import departmentRoutes from "./routes/departmentRoutes";
 import studentRoutes from "./routes/studentRoutes";
@@ -11,19 +30,9 @@ import approvalRoutes from "./routes/approvalRoutes";
 import { protect, isAdmin } from "./middleware/authMiddleware";
 import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
-import syncRoutes from "./modules/offline/sync/syncRoutes"; // ✅ corrected path
+import syncRoutes from "./modules/offline/sync/syncRoutes";
 
-dotenv.config();
-
-console.log("🔄 Starting server...");
-
-const app = express();
-
-// ✅ Middleware
-app.use(express.json());
-app.use(cors());
-
-// ✅ Mount routes
+// ✅ Mount Routes
 app.use("/api/schools", schoolRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/students", studentRoutes);
@@ -31,24 +40,24 @@ app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/offline", offlineRoutes);
-app.use("/api/sync", syncRoutes); // ✅ fixed router.use → app.use
+app.use("/api/sync", syncRoutes);
 
 console.log("✅ Routes mounted successfully");
 
-// ✅ Root route
-app.get("/", (req: Request, res: Response) => {
+// ✅ Root Route
+app.get("/", (_req: Request, res: Response) => {
   res.json({
     status: "OK",
     message: "🎓 AcadeX API is running successfully!",
   });
 });
 
-// ✅ Test route
-app.get("/test", (req: Request, res: Response) => {
-  res.json({ message: "✅ Test route works!" });
+// ✅ Health Check Route
+app.get("/ping", (_req: Request, res: Response) => {
+  res.status(200).send("pong 🚀");
 });
 
-// ✅ Protected routes
+// ✅ Protected Routes
 app.get("/api/protected", protect, (req: Request, res: Response) => {
   res.json({
     message: "✅ You are authenticated",
@@ -56,15 +65,34 @@ app.get("/api/protected", protect, (req: Request, res: Response) => {
   });
 });
 
-app.get("/api/admin-only", protect, isAdmin, (req: Request, res: Response) => {
+app.get("/api/admin-only", protect, isAdmin, (_req: Request, res: Response) => {
   res.json({ message: "✅ You are an admin" });
 });
 
-// ✅ Start Server
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌐 Test URL: http://localhost:${PORT}/test`);
-}).on("error", (err) => {
-  console.error("❌ Server error:", err);
+// ✅ Global Error Handler (prevents Render 502 crashes)
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("❌ Global error handler caught:", err);
+  res.status(500).json({
+    status: "error",
+    message: err.message || "Internal Server Error",
+  });
 });
+
+// ✅ Start Server only after DB connects
+async function startServer() {
+  try {
+    console.log("🔗 Connecting to database...");
+    await prisma.$connect();
+    console.log("✅ Database connection established successfully.");
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 Test URL: http://localhost:${PORT}/ping`);
+    });
+  } catch (err: any) {
+    console.error("❌ Failed to connect to database:", err.message);
+    process.exit(1);
+  }
+}
+
+startServer();

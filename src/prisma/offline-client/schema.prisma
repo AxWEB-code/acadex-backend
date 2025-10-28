@@ -1,8 +1,9 @@
-// src/modules/offline/db/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
-  output   = "../../../prisma/offline-client"
+  output   = "./src/prisma/offline-client"
 }
+
 
 datasource db {
   provider = "sqlite"

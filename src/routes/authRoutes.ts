@@ -1,21 +1,20 @@
-import express from "express";
+import { Router } from "express";
+import { protect, isAdmin } from "../middleware/authMiddleware";
 import {
-  registerStudent,
-  loginStudent,
-  adminLogin,
-  registerSchool,
-} from "../controllers/authController";
+  approveStudent,
+  rejectStudent,
+  getPendingStudents,
+  getApprovedStudents,
+} from "../controllers/approvalController";
 
-const router = express.Router();
+const router = Router();
 
-// ✅ Student auth
-router.post("/student/register", registerStudent);
-router.post("/student/login", loginStudent);
+// 🧩 Approval actions
+router.post("/students/:id/approve", protect, isAdmin, approveStudent);
+router.post("/students/:id/reject", protect, isAdmin, rejectStudent);
 
-// ✅ School admin registration
-router.post("/register", registerSchool); // 👈 now /api/auth/register works
-
-// ✅ Admin login
-router.post("/admin/login", adminLogin);
+// 🧩 Admin dashboard lists
+router.get("/students/pending", protect, isAdmin, getPendingStudents);
+router.get("/students/approved", protect, isAdmin, getApprovedStudents);
 
 export default router;

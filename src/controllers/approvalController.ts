@@ -65,3 +65,59 @@ export const rejectStudent = async (req: Request, res: Response) => {
       .json({ message: "Server error", error: err.message || err });
   }
 };
+
+
+/**
+ * ✅ Get all pending students (for admin dashboard)
+ * GET /api/approvals/students/pending
+ */
+export const getPendingStudents = async (req: Request, res: Response) => {
+  try {
+    const { schoolId } = (req as any).user || {};
+
+    const whereClause: any = { approvalStatus: "pending" };
+    if (schoolId) whereClause.schoolId = schoolId;
+
+    const students = await prisma.student.findMany({
+      where: whereClause,
+      include: { department: true, school: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({
+      count: students.length,
+      students,
+    });
+  } catch (err: any) {
+    console.error("❌ getPendingStudents error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+
+/**
+ * ✅ Get all approved students
+ * GET /api/approvals/students/approved
+ */
+export const getApprovedStudents = async (req: Request, res: Response) => {
+  try {
+    const { schoolId } = (req as any).user || {};
+
+    const whereClause: any = { approvalStatus: "approved" };
+    if (schoolId) whereClause.schoolId = schoolId;
+
+    const students = await prisma.student.findMany({
+      where: whereClause,
+      include: { department: true, school: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    res.json({
+      count: students.length,
+      students,
+    });
+  } catch (err: any) {
+    console.error("❌ getApprovedStudents error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};

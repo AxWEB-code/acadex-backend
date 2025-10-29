@@ -116,7 +116,7 @@ export const loginStudent = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: student.id, role: "student", schoolId: student.schoolId },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "2d" }
     );
 
     res.json({
@@ -150,6 +150,8 @@ export const adminLogin = async (req: Request, res: Response) => {
 
     const school = await prisma.school.findFirst({
   where: { adminEmail: email },
+
+  
    });
 
 
@@ -166,7 +168,7 @@ export const adminLogin = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: school.id, role: "admin", schoolCode: school.schoolCode },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "2d" }
     );
 
     res.json({
@@ -180,10 +182,14 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("adminLogin error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+  console.error("❌ adminLogin error:", error);
+  res.status(500).json({
+    message: "Server error during admin login",
+    details: error.message || error,
+    stack: process.env.NODE_ENV !== "production" ? error.stack : undefined,
+  });
+}
+
 
 /**
  * ✅ Register a new School (Admin signup)

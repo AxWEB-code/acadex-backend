@@ -57,6 +57,17 @@ app.get("/ping", (_req: Request, res: Response) => {
   res.status(200).send("pong 🚀");
 });
 
+app.get("/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", db: "connected", uptime: process.uptime() });
+  } catch {
+    res.status(500).json({ status: "error", db: "disconnected" });
+  }
+});
+
+
+
 // ✅ Protected Routes
 app.get("/api/protected", protect, (req: Request, res: Response) => {
   res.json({
@@ -94,5 +105,7 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+
 
 startServer();

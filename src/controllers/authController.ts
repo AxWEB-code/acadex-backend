@@ -8,6 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "acadex_secret_key";
 /**
  * ✅ Register a new Student
  */
+
 export const registerStudent = async (req: Request, res: Response) => {
   try {
     const {
@@ -20,8 +21,14 @@ export const registerStudent = async (req: Request, res: Response) => {
       gender,
       schoolId,
       departmentId,
+      academicYear,
+      level,
+      term,
+      semester,
+      class: className,
     } = req.body;
 
+    // 🔍 Step 1 — Validate fields
     if (
       !admissionNo ||
       !rollNumber ||
@@ -29,27 +36,46 @@ export const registerStudent = async (req: Request, res: Response) => {
       !lastName ||
       !email ||
       !password ||
-      !schoolId
+      !schoolId ||
+      !departmentId
     ) {
       return res.status(400).json({
         message: "Missing required fields.",
       });
     }
 
-    const existing = await prisma.student.findFirst({
-      where: {
-        OR: [{ rollNumber }, { email }],
-      },
+    // 🔍 Step 2 — Validate that school exists
+    const school = await prisma.school.findUnique({
+      where: { id: Number(schoolId) },
     });
+    if (!school) {
+      return res.status(404).json({ message: "School not found." });
+    }
 
+    // 🔍 Step 3 — Validate department belongs to this school
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+    if (!department || department.schoolId !== Number(schoolId)) {
+      return res.status(400).json({
+        message: "Invalid department for this school.",
+      });
+    }
+
+    // 🔍 Step 4 — Check duplicates
+    const existing = await prisma.student.findFirst({
+      where: { OR: [{ rollNumber }, { email }] },
+    });
     if (existing) {
       return res.status(400).json({
         message: "Student already exists with this roll number or email.",
       });
     }
 
+    // 🔐 Step 5 — Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ✅ Step 6 — Create new student
     const newStudent = await prisma.student.create({
       data: {
         admissionNo,
@@ -60,19 +86,25 @@ export const registerStudent = async (req: Request, res: Response) => {
         password: hashedPassword,
         gender: gender || "N/A",
         schoolId: Number(schoolId),
-        departmentId: departmentId || null,
+        departmentId,
+        academicYear,
+        level,
+        term,
+        semester,
+        class: className,
         status: "pending",
         approvalStatus: "pending",
       },
     });
 
     return res.status(201).json({
-      message: "Registration successful. Awaiting approval.",
+      message: "✅ Registration successful. Awaiting approval.",
       student: {
         id: newStudent.id,
         rollNumber: newStudent.rollNumber,
         email: newStudent.email,
         fullName: `${newStudent.firstName} ${newStudent.lastName}`,
+        departmentId: newStudent.departmentId,
         status: newStudent.status,
       },
     });
@@ -82,12 +114,13 @@ export const registerStudent = async (req: Request, res: Response) => {
   }
 };
 
+
 /**
- * ✅ Student Login
+ * ✅ Student Login (with Remember Me)
  */
 export const loginStudent = async (req: Request, res: Response) => {
   try {
-    const { rollNumber, password } = req.body;
+    const { rollNumber, password, rememberMe } = req.body;
 
     if (!rollNumber || !password) {
       return res.status(400).json({
@@ -99,12 +132,14 @@ export const loginStudent = async (req: Request, res: Response) => {
       where: { rollNumber },
     });
 
-    if (!student)
+    if (!student) {
       return res.status(404).json({ message: "Student not found." });
+    }
 
     const validPassword = await bcrypt.compare(password, student.password);
-    if (!validPassword)
+    if (!validPassword) {
       return res.status(401).json({ message: "Invalid password." });
+    }
 
     if (student.approvalStatus !== "approved") {
       return res.status(403).json({
@@ -112,21 +147,32 @@ export const loginStudent = async (req: Request, res: Response) => {
       });
     }
 
+    // ⏳ Token expiry based on rememberMe flag
+    const expiresIn = rememberMe ? "30d" : "7d";
+
     const token = jwt.sign(
       { id: student.id, role: "student", schoolId: student.schoolId },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn }
     );
+
+    // ✅ Update last login
+    await prisma.student.update({
+      where: { id: student.id },
+      data: { lastLogin: new Date() },
+    });
 
     res.json({
       message: "Login successful",
       token,
+      expiresIn,
       student: {
         id: student.id,
         fullName: `${student.firstName} ${student.lastName}`,
         rollNumber: student.rollNumber,
         email: student.email,
         schoolId: student.schoolId,
+        departmentId: student.departmentId,
         status: student.status,
       },
     });
@@ -141,7 +187,7 @@ export const loginStudent = async (req: Request, res: Response) => {
  */
 export const adminLogin = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required." });
@@ -160,15 +206,19 @@ export const adminLogin = async (req: Request, res: Response) => {
     if (!validPassword)
       return res.status(401).json({ message: "Invalid password." });
 
+    // ⏳ Token expiry
+    const expiresIn = rememberMe ? "30d" : "7d";
+
     const token = jwt.sign(
       { id: school.id, role: "admin", schoolCode: school.schoolCode },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn }
     );
 
     res.json({
       message: "Admin login successful",
       token,
+      expiresIn,
       admin: {
         schoolId: school.id,
         email: school.adminEmail,
@@ -177,7 +227,7 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("❌ adminLogin error:", error);
+    console.error("adminLogin error:", error);
     res.status(500).json({
       message: "Server error during admin login",
       details: error.message || error,
@@ -185,6 +235,7 @@ export const adminLogin = async (req: Request, res: Response) => {
     });
   }
 };
+
 
 /**
  * ✅ Register a new School (Admin signup)

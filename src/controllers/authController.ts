@@ -36,7 +36,6 @@ export const registerStudent = async (req: Request, res: Response) => {
       });
     }
 
-    // check if student already exists by roll number or email
     const existing = await prisma.student.findFirst({
       where: {
         OR: [{ rollNumber }, { email }],
@@ -116,7 +115,7 @@ export const loginStudent = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: student.id, role: "student", schoolId: student.schoolId },
       JWT_SECRET,
-      { expiresIn: "2d" }
+      { expiresIn: "7d" }
     );
 
     res.json({
@@ -139,7 +138,6 @@ export const loginStudent = async (req: Request, res: Response) => {
 
 /**
  * ✅ School Admin Login
- * Uses adminEmail and adminPassword from the School model
  */
 export const adminLogin = async (req: Request, res: Response) => {
   try {
@@ -149,11 +147,8 @@ export const adminLogin = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Email and password required." });
 
     const school = await prisma.school.findFirst({
-  where: { adminEmail: email },
-
-  
-   });
-
+      where: { adminEmail: email },
+    });
 
     if (!school)
       return res.status(404).json({ message: "Admin not found for this email." });
@@ -168,7 +163,7 @@ export const adminLogin = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: school.id, role: "admin", schoolCode: school.schoolCode },
       JWT_SECRET,
-      { expiresIn: "2d" }
+      { expiresIn: "7d" }
     );
 
     res.json({
@@ -182,14 +177,14 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-  console.error("❌ adminLogin error:", error);
-  res.status(500).json({
-    message: "Server error during admin login",
-    details: error.message || error,
-    stack: process.env.NODE_ENV !== "production" ? error.stack : undefined,
-  });
-}
-
+    console.error("❌ adminLogin error:", error);
+    res.status(500).json({
+      message: "Server error during admin login",
+      details: error.message || error,
+      stack: process.env.NODE_ENV !== "production" ? error.stack : undefined,
+    });
+  }
+};
 
 /**
  * ✅ Register a new School (Admin signup)
@@ -202,7 +197,6 @@ export const registerSchool = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    // check if subdomain or email already exists
     const existingSchool = await prisma.school.findFirst({
       where: {
         OR: [{ subdomain }, { adminEmail }],
@@ -214,7 +208,6 @@ export const registerSchool = async (req: Request, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
     const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(
       1000 + Math.random() * 9000
     )}`;
@@ -244,9 +237,6 @@ export const registerSchool = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("registerSchool error:", error);
-    res
-      .status(500)
-      .json({ message: "Server error", error: error.message || error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-

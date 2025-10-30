@@ -9,20 +9,28 @@ const generateRandomCode = (prefix: string, subdomain: string) => {
   return `${prefix}-${subdomain.toUpperCase()}-${random}`;
 };
 
-// ✅ Create School (single or bulk)
+// ✅ Create School (single or bulk + departments)
 export const createSchool = async (req: Request, res: Response) => {
   try {
-    // 🧠 Detect if the request is bulk (array of schools)
+    // 🧠 Detect if bulk create (array)
     if (Array.isArray(req.body)) {
       const results = [];
 
       for (const schoolData of req.body) {
-        const { name, subdomain, logo, schoolType, plan, status, adminEmail, adminPassword } =
-          schoolData;
+        const {
+          name,
+          subdomain,
+          logo,
+          schoolType,
+          plan,
+          status,
+          adminEmail,
+          adminPassword,
+          departments,
+        } = schoolData;
 
-        if (!name || !subdomain) continue; // Skip invalid items
+        if (!name || !subdomain) continue;
 
-        // Skip if already exists
         const existing = await prisma.school.findUnique({ where: { subdomain } });
         if (existing) continue;
 
@@ -50,6 +58,13 @@ export const createSchool = async (req: Request, res: Response) => {
               total_results: 0,
               recent_activity: [],
             },
+            // ✅ Automatically create departments
+            departments: {
+              create: departments || [],
+            },
+          },
+          include: {
+            departments: true,
           },
         });
 
@@ -57,21 +72,29 @@ export const createSchool = async (req: Request, res: Response) => {
       }
 
       return res.status(201).json({
-        message: `✅ ${results.length} schools created successfully`,
+        message: `✅ ${results.length} schools created successfully with departments`,
         results,
       });
     }
 
-    // 🧩 Single school creation (original logic)
-    const { name, subdomain, logo, schoolType } = req.body;
+    // 🧩 Single School Creation (with optional departments)
+    const {
+      name,
+      subdomain,
+      logo,
+      schoolType,
+      plan,
+      status,
+      adminEmail,
+      adminPassword,
+      departments,
+    } = req.body;
 
     if (!name || !subdomain) {
       return res.status(400).json({ error: "Name and subdomain are required" });
     }
 
-    const existingSchool = await prisma.school.findUnique({
-      where: { subdomain },
-    });
+    const existingSchool = await prisma.school.findUnique({ where: { subdomain } });
     if (existingSchool) {
       return res.status(400).json({ error: "Subdomain already exists" });
     }
@@ -86,7 +109,11 @@ export const createSchool = async (req: Request, res: Response) => {
         subdomain,
         logo,
         schoolType: schoolType || "CBT",
+        plan: plan || "free",
+        status: status || "active",
         schoolCode,
+        adminEmail,
+        adminPassword,
         settings: defaultSettings,
         permissions: defaultPermissions,
         adminRoles: adminRoles(subdomain),
@@ -96,12 +123,17 @@ export const createSchool = async (req: Request, res: Response) => {
           total_results: 0,
           recent_activity: [],
         },
-        plan: "free",
+        departments: {
+          create: departments || [],
+        },
+      },
+      include: {
+        departments: true,
       },
     });
 
     res.status(201).json({
-      message: "✅ School created successfully with default configuration",
+      message: "✅ School created successfully with departments",
       school,
     });
   } catch (error: any) {

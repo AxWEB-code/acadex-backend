@@ -106,6 +106,13 @@ async function startServer() {
   }
 }
 
+app.use(
+  cors({
+    origin: "*", // ✅ temporarily allow all origins for testing
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 
 startServer();

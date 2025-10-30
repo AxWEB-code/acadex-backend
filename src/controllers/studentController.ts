@@ -3,200 +3,143 @@ import prisma from "../prisma";
 import bcrypt from "bcryptjs";
 import { generateRollNumber } from "../utils/roll";
 
-// 🧩 Create a new student (with safer rollNumber + retry on collision)
+
+// ✅ Create one or multiple students
 export const createStudent = async (req: Request, res: Response) => {
   try {
-    const {
-      admissionNo, // from school input
-      firstName,
-      lastName,
-      gender,
-      email,
-      password,
-      contactNumber,
-      dob,
-      academicYear,
-      level,
-      department,
-      departmentId,
-      class: klass,
-      semester,
-      term,
-      schoolId,
-      schoolSubdomain, // ✅ new flexible field
-    } = req.body;
+    const input = Array.isArray(req.body) ? req.body : [req.body];
+    const createdStudents = [];
 
-    // 🧩 1. Validate base fields (email, name, etc.)
-    if (!admissionNo || !firstName || !lastName || !gender || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    // 🧩 2. Resolve school
-    let resolvedSchoolId = schoolId ? Number(schoolId) : null;
-    let school = null;
-
-    if (!resolvedSchoolId && schoolSubdomain) {
-      school = await prisma.school.findUnique({
-        where: { subdomain: schoolSubdomain },
-      });
-      if (!school) {
-        return res.status(404).json({ message: "School not found for that subdomain" });
-      }
-      resolvedSchoolId = school.id;
-    }
-
-    if (!resolvedSchoolId) {
-      return res.status(400).json({ message: "Missing schoolId or schoolSubdomain" });
-    }
-
-    // Ensure we have the school (for defaults later)
-    if (!school) {
-      school = await prisma.school.findUnique({
-        where: { id: resolvedSchoolId },
-      });
-      if (!school) return res.status(404).json({ message: "School not found" });
-    }
-
-    // 🧩 3. Resolve department
-    let resolvedDepartmentId = departmentId ?? null;
-    if (!resolvedDepartmentId && department) {
-      const foundDept = await prisma.department.findFirst({
-        where: {
-          name: { equals: department, mode: "insensitive" },
-          schoolId: resolvedSchoolId,
-        },
-      });
-      if (foundDept) resolvedDepartmentId = foundDept.id;
-    }
-
-    // 🧩 4. Admission format validation
-    let admissionFormatValid = true;
-    if (resolvedDepartmentId) {
-      const dept = await prisma.department.findUnique({
-        where: { id: resolvedDepartmentId },
-      });
-      if (dept?.admissionFormatRegex) {
-        const rx = new RegExp(dept.admissionFormatRegex);
-        admissionFormatValid = rx.test(admissionNo);
-        if (!admissionFormatValid) {
-          return res.status(400).json({
-            message: `Admission number must match department format: ${dept.admissionFormatPreview}`,
-          });
-        }
-      }
-    }
-
-    // 🧩 5. Ensure admission number uniqueness
-    const clash = await prisma.student.findFirst({
-      where: {
+    for (const studentData of input) {
+      const {
         admissionNo,
-        schoolId: resolvedSchoolId,
-        ...(resolvedDepartmentId ? { departmentId: resolvedDepartmentId } : {}),
-      },
-      select: { id: true },
-    });
-    if (clash) {
-      return res.status(409).json({
-        message: "Admission number already exists for this department/school.",
-      });
-    }
+        firstName,
+        lastName,
+        gender,
+        email,
+        password,
+        contactNumber,
+        dob,
+        academicYear,
+        level,
+        department,
+        departmentId,
+        class: klass,
+        semester,
+        term,
+        schoolId,
+        schoolSubdomain,
+        rollNumber, // Optional, can come from your dataset
+      } = studentData;
 
-    // 🧩 6. Defaults
-    const nowYear = new Date().getFullYear().toString();
-    const effectiveAcademicYear = academicYear ?? nowYear;
-    let effectiveTerm: string | null = term ?? null;
-    let effectiveSemester: string | null = semester ?? null;
+      // 🧩 Validate base fields
+      if (!firstName || !lastName || !email || !gender || !password || (!schoolId && !schoolSubdomain)) {
+        throw new Error(`Missing required fields for student ${firstName} ${lastName}`);
+      }
 
-    if (!term && !semester) {
-      if (school.schoolType === "HIGH_SCHOOL") effectiveTerm = "First Term";
-      if (school.schoolType === "TERTIARY") effectiveSemester = "First Semester";
-    }
+      // 🧩 Resolve school
+      let resolvedSchool = null;
+      if (schoolId) {
+        resolvedSchool = await prisma.school.findUnique({ where: { id: Number(schoolId) } });
+      } else if (schoolSubdomain) {
+        resolvedSchool = await prisma.school.findUnique({ where: { subdomain: schoolSubdomain } });
+      }
 
-    // 🧩 7. Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+      if (!resolvedSchool) throw new Error(`School not found for ${schoolSubdomain || schoolId}`);
 
-    // 🧩 8. Generate unique rollNumber (safe retry)
-    const MAX_RETRIES = 5;
-    let created: any = null;
-    let attempt = 0;
-
-    while (true) {
-      attempt += 1;
-      const rollNumber = await generateRollNumber();
-      try {
-        created = await prisma.student.create({
-          data: {
-            rollNumber,
-            admissionNo,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            gender,
-            email: email.trim().toLowerCase(),
-            password: hashedPassword,
-            contactNumber: contactNumber ?? null,
-            dob: dob ? new Date(dob) : null,
-            academicYear: effectiveAcademicYear,
-            level: level ?? null,
-            term: effectiveTerm,
-            semester: effectiveSemester,
-            class: klass ?? null,
-            schoolId: resolvedSchoolId,
-            departmentId: resolvedDepartmentId,
-            performance: {
-              exams: [],
-              averageScore: 0,
-              lastUpdated: null,
-            },
-            admissionFormatValid,
-            approvalStatus: "pending",
-            approvedBy: null,
-            approvedAt: null,
-            subdomain: school.subdomain,
-            status: "pending",
+      // 🧩 Resolve department
+      let resolvedDepartmentId = departmentId ?? null;
+      if (!resolvedDepartmentId && department) {
+        const foundDept = await prisma.department.findFirst({
+          where: {
+            name: { equals: department, mode: "insensitive" },
+            schoolId: resolvedSchool.id,
           },
         });
-        break;
-      } catch (error: any) {
-        if (
-          error?.code === "P2002" &&
-          Array.isArray(error?.meta?.target) &&
-          error.meta.target.includes("rollNumber")
-        ) {
-          if (attempt >= MAX_RETRIES) {
-            return res.status(409).json({
-              message: "Could not allocate unique roll number. Please retry.",
-            });
-          }
-          continue;
-        }
-        throw error;
+        if (foundDept) resolvedDepartmentId = foundDept.id;
       }
-    }
 
-    // ✅ Success
-    return res.status(201).json({
-      message: "Student created successfully",
-      student: {
+      // 🧩 Default year + semester/term
+      const nowYear = new Date().getFullYear().toString();
+      const effectiveAcademicYear = academicYear ?? nowYear;
+      let effectiveTerm: string | null = term ?? null;
+      let effectiveSemester: string | null = semester ?? null;
+
+      if (!term && !semester) {
+        if (resolvedSchool.schoolType === "HIGH_SCHOOL") effectiveTerm = "First Term";
+        if (resolvedSchool.schoolType === "TERTIARY") effectiveSemester = "First Semester";
+      }
+
+      // 🧩 Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // 🧩 Safe unique rollNumber (or use provided)
+      const MAX_RETRIES = 5;
+      let newRoll = rollNumber || null;
+      let attempt = 0;
+      while (!newRoll) {
+        attempt++;
+        try {
+          const temp = await generateRollNumber();
+          const exists = await prisma.student.findUnique({ where: { rollNumber: temp } });
+          if (!exists) newRoll = temp;
+        } catch {
+          if (attempt >= MAX_RETRIES) throw new Error("Failed to generate unique rollNumber");
+        }
+      }
+
+      // 🧩 Create student
+      const created = await prisma.student.create({
+        data: {
+          rollNumber: newRoll,
+          admissionNo: admissionNo ?? newRoll, // fallback
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          gender,
+          email: email.trim().toLowerCase(),
+          password: hashedPassword,
+          contactNumber: contactNumber ?? null,
+          dob: dob ? new Date(dob) : null,
+          academicYear: effectiveAcademicYear,
+          level: level ?? null,
+          term: effectiveTerm,
+          semester: effectiveSemester,
+          class: klass ?? null,
+          schoolId: resolvedSchool.id,
+          departmentId: resolvedDepartmentId,
+          performance: {
+            exams: [],
+            averageScore: 0,
+            lastUpdated: null,
+          },
+          admissionFormatValid: true,
+          approvalStatus: "pending",
+          approvedBy: null,
+          approvedAt: null,
+          subdomain: resolvedSchool.subdomain,
+          status: "pending",
+        },
+      });
+
+      createdStudents.push({
         id: created.id,
-        rollNumber: created.rollNumber,
-        admissionNo: created.admissionNo,
         fullName: `${created.firstName} ${created.lastName}`,
         email: created.email,
-        schoolId: created.schoolId,
-        departmentId: created.departmentId,
-        approvalStatus: created.approvalStatus,
-        status: created.status,
-        academicYear: created.academicYear,
-        term: created.term,
-        semester: created.semester,
-        class: created.class,
-      },
+        school: resolvedSchool.subdomain,
+        department,
+        rollNumber: created.rollNumber,
+      });
+    }
+
+    return res.status(201).json({
+      message: `✅ ${createdStudents.length} student(s) created successfully`,
+      students: createdStudents,
     });
   } catch (error: any) {
     console.error("❌ Student creation error:", error);
     return res.status(500).json({
       message: "Internal server error",
-      error: error?.message ?? String(error),
+      error: error.message || String(error),
     });
   }
 };

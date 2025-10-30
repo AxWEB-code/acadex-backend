@@ -229,5 +229,48 @@ export const getSchoolBySubdomain = async (req: Request, res: Response) => {
   }
 };
 
+// ✅ Verify School Code
+export const verifySchoolCode = async (req: Request, res: Response) => {
+  try {
+    const { schoolCode, schoolId } = req.body;
 
+    if (!schoolCode || !schoolId) {
+      return res.status(400).json({ 
+        error: "School code and school ID are required" 
+      });
+    }
+
+    // Find school by ID and verify the code
+    const school = await prisma.school.findFirst({
+      where: {
+        id: Number(schoolId),
+        schoolCode: schoolCode.trim().toUpperCase(),
+      },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        schoolCode: true,
+      },
+    });
+
+    if (school) {
+      return res.status(200).json({ 
+        isValid: true,
+        school: {
+          id: school.id,
+          name: school.name,
+          subdomain: school.subdomain,
+        }
+      });
+    } else {
+      return res.status(200).json({ 
+        isValid: false 
+      });
+    }
+  } catch (error: any) {
+    console.error("❌ Error verifying school code:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
 

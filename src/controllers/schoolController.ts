@@ -9,43 +9,76 @@ const generateRandomCode = (prefix: string, subdomain: string) => {
   return `${prefix}-${subdomain.toUpperCase()}-${random}`;
 };
 
-// ✅ Create School
+// ✅ Create School (single or bulk)
 export const createSchool = async (req: Request, res: Response) => {
   try {
+    // 🧠 Detect if the request is bulk (array of schools)
+    if (Array.isArray(req.body)) {
+      const results = [];
+
+      for (const schoolData of req.body) {
+        const { name, subdomain, logo, schoolType, plan, status, adminEmail, adminPassword } =
+          schoolData;
+
+        if (!name || !subdomain) continue; // Skip invalid items
+
+        // Skip if already exists
+        const existing = await prisma.school.findUnique({ where: { subdomain } });
+        if (existing) continue;
+
+        const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(
+          Math.random() * 9000 + 1000
+        )}`;
+
+        const created = await prisma.school.create({
+          data: {
+            name,
+            subdomain,
+            logo,
+            schoolType: schoolType || "CBT",
+            plan: plan || "free",
+            status: status || "active",
+            schoolCode,
+            adminEmail,
+            adminPassword,
+            settings: defaultSettings,
+            permissions: defaultPermissions,
+            adminRoles: adminRoles(subdomain),
+            analytics: {
+              total_students: 0,
+              total_exams: 0,
+              total_results: 0,
+              recent_activity: [],
+            },
+          },
+        });
+
+        results.push(created);
+      }
+
+      return res.status(201).json({
+        message: `✅ ${results.length} schools created successfully`,
+        results,
+      });
+    }
+
+    // 🧩 Single school creation (original logic)
     const { name, subdomain, logo, schoolType } = req.body;
 
-    // Validate required fields
     if (!name || !subdomain) {
       return res.status(400).json({ error: "Name and subdomain are required" });
     }
 
-    // Check if subdomain already exists
     const existingSchool = await prisma.school.findUnique({
       where: { subdomain },
     });
-
     if (existingSchool) {
       return res.status(400).json({ error: "Subdomain already exists" });
     }
 
-    // Generate unique school code
-    const schoolCode = generateRandomCode("SCH", subdomain);
-    const roles = adminRoles(subdomain);
-
-    const analytics = {
-      total_students: 0,
-      total_exams: 0,
-      total_results: 0,
-      recent_activity: [],
-    };
-
-    const planData = {
-      plan: "free",
-      subscriptionStart: null,
-      subscriptionEnd: null,
-    };
-
-    console.log("Creating school:", req.body);
+    const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(
+      Math.random() * 9000 + 1000
+    )}`;
 
     const school = await prisma.school.create({
       data: {
@@ -56,9 +89,14 @@ export const createSchool = async (req: Request, res: Response) => {
         schoolCode,
         settings: defaultSettings,
         permissions: defaultPermissions,
-        adminRoles: roles,
-        analytics,
-        ...planData,
+        adminRoles: adminRoles(subdomain),
+        analytics: {
+          total_students: 0,
+          total_exams: 0,
+          total_results: 0,
+          recent_activity: [],
+        },
+        plan: "free",
       },
     });
 
@@ -68,18 +106,16 @@ export const createSchool = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("❌ Error creating school:", error);
-    
-    // Handle specific Prisma errors
-    if (error.code === 'P1001') {
+
+    if (error.code === "P1001")
       return res.status(500).json({ error: "Cannot connect to database server" });
-    }
-    if (error.code === 'P1012') {
+    if (error.code === "P1012")
       return res.status(500).json({ error: "Schema validation error" });
-    }
-    
+
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // ✅ Get All Schools
 export const getSchools = async (req: Request, res: Response) => {
@@ -160,4 +196,6 @@ export const getSchoolBySubdomain = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 

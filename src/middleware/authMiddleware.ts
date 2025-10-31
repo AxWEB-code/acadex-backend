@@ -28,3 +28,35 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   }
   next();
 };
+
+
+export interface AuthRequest extends Request {
+  user?: { id: number; role: string; schoolId: number };
+}
+
+// ✅ Middleware to verify JWT token
+export const verifyToken = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Access denied. No token provided." });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "supersecretkey"
+    ) as { id: number; role: string; schoolId: number };
+
+    req.user = decoded;
+    next();
+  } catch (err: any) {
+    console.error("❌ Invalid token:", err.message);
+    res.status(401).json({ error: "Invalid or expired token." });
+  }
+};

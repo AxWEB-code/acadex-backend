@@ -1,23 +1,42 @@
 import { Router } from "express";
+import prisma from "../prisma";
 import {
-  registerStudent,
-  loginStudent,
+  createStudent,
   getStudents,
   getStudent,
   updateStudent,
   deleteStudent,
+  registerStudent,
+  loginStudent,
 } from "../controllers/studentController";
+import { verifyToken } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// ✅ Registration and Login
-router.post("/students/register", registerStudent);
-router.post("/auth/student/login", loginStudent);
+// CRUD
+router.post("/", createStudent);
+router.get("/", getStudents);
+router.get("/:id", getStudent);
+router.put("/:id", updateStudent);
+router.patch("/:id", updateStudent);
+router.delete("/:id", deleteStudent);
 
-// ✅ Basic CRUD (for admin or debug)
-router.get("/students", getStudents);
-router.get("/students/:id", getStudent);
-router.put("/students/:id", updateStudent);
-router.delete("/students/:id", deleteStudent);
+// Auth
+router.post("/register", registerStudent);
+router.post("/login", loginStudent);
+
+// Protected profile route
+router.get("/profile/me", verifyToken, async (req: any, res) => {
+  try {
+    const student = await prisma.student.findUnique({
+      where: { id: req.user.id },
+      include: { school: true, department: true },
+    });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    res.json(student);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

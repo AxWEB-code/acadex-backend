@@ -6,7 +6,7 @@ import {
   updateSchool,
   deleteSchool,
   getSchoolBySubdomain,
-  verifySchoolCode, // Add this import
+  verifySchoolCode, // Make sure this is imported
 } from "../controllers/schoolController";
 
 const router = Router();
@@ -25,9 +25,10 @@ router.get("/:id", getSchool);
 router.put("/:id", updateSchool);
 router.delete("/:id", deleteSchool);
 
-// ✅ Add school code verification route
+// ✅ School code verification route
 router.post("/verify-code", verifySchoolCode);
 
-router.get("/debug-codes", debugSchoolCodes);
+// ❌ Remove or comment out this line for now
+// router.get("/debug-codes", debugSchoolCodes);
 
 export default router;

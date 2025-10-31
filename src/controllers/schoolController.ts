@@ -230,19 +230,32 @@ export const getSchoolBySubdomain = async (req: Request, res: Response) => {
 };
 
 // ✅ Verify School Code
-// ✅ Verify School Code
 export const verifySchoolCode = async (req: Request, res: Response) => {
   try {
     const { schoolCode, schoolId } = req.body;
 
-    console.log("🔍 [BACKEND] Verification request:", { schoolCode, schoolId });
+    console.log("🔍 [BACKEND] Verification request received:", { 
+      schoolCode, 
+      schoolId,
+      timestamp: new Date().toISOString()
+    });
 
     if (!schoolCode || !schoolId) {
-      console.log("❌ [BACKEND] Missing schoolCode or schoolId");
+      console.log("❌ [BACKEND] Missing required fields");
       return res.status(400).json({ 
         error: "School code and school ID are required" 
       });
     }
+
+    // Log all schools for debugging (temporary)
+    const allSchools = await prisma.school.findMany({
+      select: {
+        id: true,
+        name: true,
+        schoolCode: true,
+      },
+    });
+    console.log("🏫 [BACKEND] All schools in database:", allSchools);
 
     // Find school by ID and verify the code
     const school = await prisma.school.findFirst({
@@ -258,10 +271,10 @@ export const verifySchoolCode = async (req: Request, res: Response) => {
       },
     });
 
-    console.log("🔍 [BACKEND] Found school:", school);
+    console.log("🔍 [BACKEND] School found for verification:", school);
 
     if (school) {
-      console.log("✅ [BACKEND] Code is VALID for school:", school.name);
+      console.log("✅ [BACKEND] Code VALID for:", school.name);
       return res.status(200).json({ 
         isValid: true,
         school: {
@@ -271,32 +284,17 @@ export const verifySchoolCode = async (req: Request, res: Response) => {
         }
       });
     } else {
-      console.log("❌ [BACKEND] Code is INVALID - no matching school found");
+      console.log("❌ [BACKEND] Code INVALID - No match found");
+      console.log("🔍 [BACKEND] Looking for:", {
+        schoolId: Number(schoolId),
+        schoolCode: schoolCode.trim().toUpperCase()
+      });
       return res.status(200).json({ 
         isValid: false 
       });
     }
   } catch (error: any) {
     console.error("❌ [BACKEND] Error verifying school code:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ✅ Debug: Get all schools with their codes
-export const debugSchoolCodes = async (req: Request, res: Response) => {
-  try {
-    const schools = await prisma.school.findMany({
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-        schoolCode: true,
-      },
-    });
-    
-    console.log("🏫 [BACKEND] All school codes:", schools);
-    res.json(schools);
-  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };

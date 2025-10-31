@@ -183,6 +183,8 @@ export const registerStudent = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email already registered" });
 
     const hashed = await bcrypt.hash(password, 10);
+    console.log("📥 Register payload received:", req.body);
+
 
     // ✅ Auto-generate global roll number
     const rollNumber = await generateSequentialRollNumber();
@@ -354,3 +356,5 @@ export const getStudents = async (req: Request, res: Response) => {
     });
   }
 };
+
+

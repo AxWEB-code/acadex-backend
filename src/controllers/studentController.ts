@@ -148,6 +148,9 @@ export const createStudent = async (req: Request, res: Response) => {
 // ✅ Register from frontend (single student)
 export const registerStudent = async (req: Request, res: Response) => {
   try {
+    console.log("📥 FULL Register request body:", JSON.stringify(req.body, null, 2));
+    console.log("📥 Register headers:", req.headers);
+
     const {
       firstName,
       lastName,
@@ -166,28 +169,59 @@ export const registerStudent = async (req: Request, res: Response) => {
       schoolSubdomain,
     } = req.body;
 
-    if (!schoolSubdomain)
+    console.log("🔍 Parsed fields:", {
+      firstName,
+      lastName,
+      email,
+      password: password ? "***" : "MISSING",
+      gender,
+      dob,
+      admissionNo,
+      department,
+      level,
+      class: klass,
+      semester,
+      term,
+      academicYear,
+      contactNumber,
+      schoolSubdomain,
+    });
+
+    // Validation with detailed errors
+    if (!schoolSubdomain) {
+      console.log("❌ Missing schoolSubdomain");
       return res.status(400).json({ error: "School subdomain is required" });
+    }
+
+    if (!email || !password || !firstName || !lastName) {
+      console.log("❌ Missing required fields:", {
+        email: !!email,
+        password: !!password,
+        firstName: !!firstName,
+        lastName: !!lastName
+      });
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
     const school = await prisma.school.findUnique({
       where: { subdomain: schoolSubdomain },
     });
-    if (!school)
+    if (!school) {
+      console.log("❌ School not found for subdomain:", schoolSubdomain);
       return res.status(404).json({ error: "School not found" });
-
-    if (!email || !password || !firstName || !lastName)
-      return res.status(400).json({ error: "Missing required fields" });
+    }
 
     const existing = await prisma.student.findUnique({ where: { email } });
-    if (existing)
+    if (existing) {
+      console.log("❌ Email already exists:", email);
       return res.status(400).json({ error: "Email already registered" });
+    }
 
     const hashed = await bcrypt.hash(password, 10);
-    console.log("📥 Register payload received:", req.body);
-
-
+    
     // ✅ Auto-generate global roll number
     const rollNumber = await generateSequentialRollNumber();
+    console.log("✅ Generated roll number:", rollNumber);
 
     const student = await prisma.student.create({
       data: {
@@ -198,7 +232,7 @@ export const registerStudent = async (req: Request, res: Response) => {
         password: hashed,
         gender,
         dob: dob ? new Date(dob) : null,
-        admissionNo,
+        admissionNo: admissionNo || rollNumber, // Use rollNumber as fallback
         department,
         level,
         class: klass,
@@ -210,15 +244,30 @@ export const registerStudent = async (req: Request, res: Response) => {
         subdomain: school.subdomain,
         status: "active",
         approvalStatus: "approved",
+        // Add missing required fields
+        performance: {
+          exams: [],
+          averageScore: 0,
+          lastUpdated: null,
+        },
+        admissionFormatValid: true,
       },
     });
 
+    console.log("✅ Student created successfully:", student.id);
     res.status(201).json({
       message: "✅ Registration successful",
-      student,
+      student: {
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        rollNumber: student.rollNumber,
+      },
     });
   } catch (err: any) {
     console.error("❌ Registration error:", err);
+    console.error("❌ Error details:", err.message);
     res.status(500).json({ error: err.message });
   }
 };

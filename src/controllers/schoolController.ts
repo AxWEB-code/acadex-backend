@@ -298,3 +298,28 @@ export const verifySchoolCode = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// ✅ Get all schools with codes (for debugging)
+export const getAllSchoolsWithCodes = async (req: Request, res: Response) => {
+  try {
+    const schools = await prisma.school.findMany({
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        schoolCode: true,
+      },
+      orderBy: {
+        id: 'asc'
+      }
+    });
+    
+    res.json({
+      message: `Found ${schools.length} schools`,
+      schools: schools
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};

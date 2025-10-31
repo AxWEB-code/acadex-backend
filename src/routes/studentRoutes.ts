@@ -1,19 +1,23 @@
 import { Router } from "express";
-import { 
-  createStudent, 
-  getStudents, 
-  getStudent, 
-  updateStudent, 
-  deleteStudent 
+import {
+  registerStudent,
+  loginStudent,
+  getStudents,
+  getStudent,
+  updateStudent,
+  deleteStudent,
 } from "../controllers/studentController";
 
 const router = Router();
 
-router.post("/", createStudent);        // CREATE
-router.get("/", getStudents);           // READ ALL (with filters)
-router.get("/:id", getStudent);         // READ ONE
-router.put("/:id", updateStudent);      // UPDATE
-router.patch("/:id", updateStudent);    // PARTIAL UPDATE  
-router.delete("/:id", deleteStudent);   // DELETE
+// ✅ Registration and Login
+router.post("/students/register", registerStudent);
+router.post("/auth/student/login", loginStudent);
+
+// ✅ Basic CRUD (for admin or debug)
+router.get("/students", getStudents);
+router.get("/students/:id", getStudent);
+router.put("/students/:id", updateStudent);
+router.delete("/students/:id", deleteStudent);
 
 export default router;

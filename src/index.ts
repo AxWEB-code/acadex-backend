@@ -32,6 +32,7 @@ import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
 import syncRoutes from "./modules/offline/sync/syncRoutes";
 
+
 // ✅ Mount Routes
 app.use("/api/schools", schoolRoutes);
 app.use("/api/departments", departmentRoutes);

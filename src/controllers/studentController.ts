@@ -252,4 +252,117 @@ export const getStudents = async (req: Request, res: Response) => {
   }
 };
 
+import jwt from "jsonwebtoken";
+
+// ✅ Register from frontend (simplified version)
+export const registerStudent = async (req: Request, res: Response) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      gender,
+      dob,
+      admissionNo,
+      department,
+      level,
+      class: klass,
+      semester,
+      term,
+      academicYear,
+      contactNumber,
+      schoolSubdomain,
+    } = req.body;
+
+    if (!schoolSubdomain)
+      return res.status(400).json({ error: "School subdomain is required" });
+
+    const school = await prisma.school.findUnique({
+      where: { subdomain: schoolSubdomain },
+    });
+    if (!school)
+      return res.status(404).json({ error: "School not found" });
+
+    if (!email || !password || !firstName || !lastName)
+      return res.status(400).json({ error: "Missing required fields" });
+
+    // Prevent duplicate email
+    const existing = await prisma.student.findUnique({ where: { email } });
+    if (existing)
+      return res.status(400).json({ error: "Email already registered" });
+
+    // Hash password
+    const hashed = await bcrypt.hash(password, 10);
+
+    // Create student
+    const student = await prisma.student.create({
+      data: {
+        firstName,
+        lastName,
+        email: email.trim().toLowerCase(),
+        password: hashed,
+        gender,
+        dob: dob ? new Date(dob) : null,
+        admissionNo,
+        department,
+        level,
+        class: klass,
+        semester,
+        term,
+        academicYear,
+        contactNumber,
+        schoolId: school.id,
+        subdomain: school.subdomain,
+        status: "active",
+        approvalStatus: "approved",
+      },
+    });
+
+    res.status(201).json({
+      message: "✅ Registration successful",
+      student,
+    });
+  } catch (err: any) {
+    console.error("❌ Registration error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ✅ Login Student
+export const loginStudent = async (req: Request, res: Response) => {
+  try {
+    const { email, password, schoolSubdomain } = req.body;
+
+    if (!email || !password || !schoolSubdomain)
+      return res.status(400).json({ error: "Missing credentials" });
+
+    const school = await prisma.school.findUnique({
+      where: { subdomain: schoolSubdomain },
+    });
+    if (!school)
+      return res.status(404).json({ error: "School not found" });
+
+    const student = await prisma.student.findFirst({
+      where: { email, schoolId: school.id },
+    });
+    if (!student)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const valid = await bcrypt.compare(password, student.password);
+    if (!valid)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: student.id, role: "student", schoolId: school.id },
+      process.env.JWT_SECRET || "supersecretkey",
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token, student });
+  } catch (err: any) {
+    console.error("❌ Student login error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
 

@@ -28,4 +28,6 @@ router.delete("/:id", deleteSchool);
 // ✅ Add school code verification route
 router.post("/verify-code", verifySchoolCode);
 
+router.get("/debug-codes", debugSchoolCodes);
+
 export default router;

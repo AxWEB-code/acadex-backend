@@ -22,7 +22,7 @@ router.patch("/:id", updateStudent);
 router.delete("/:id", deleteStudent);
 
 // Auth
-router.post("/register", registerStudent);
+router.post("/register", registerStudent);;
 router.post("/login", loginStudent);
 
 // Protected profile route
@@ -39,45 +39,6 @@ router.get("/profile/me", verifyToken, async (req: any, res: Response) => {
   }
 });
 
-// Temporary debug endpoint
-router.post("/debug-register", async (req: Request, res: Response) => {
-  try {
-    console.log("🔍 DEBUG Request body:", JSON.stringify(req.body, null, 2));
-    console.log("🔍 DEBUG Headers:", req.headers);
-    
-    // Test minimal required fields
-    const testData = {
-      firstName: "Test",
-      lastName: "User", 
-      email: `test${Date.now()}@test.com`,
-      password: "test123",
-      gender: "Male",
-      schoolSubdomain: req.body.schoolSubdomain || "ecns"
-    };
-    
-    console.log("🔍 DEBUG Test data:", testData);
-    
-    // Test the school lookup
-    const school = await prisma.school.findUnique({
-      where: { subdomain: testData.schoolSubdomain },
-    });
-    
-    if (!school) {
-      return res.status(400).json({ error: `School not found: ${testData.schoolSubdomain}` });
-    }
-    
-    console.log("✅ DEBUG School found:", school.name);
-    
-    res.json({ 
-      message: "Debug test passed", 
-      school: school.name,
-      testData 
-    });
-    
-  } catch (error: any) {
-    console.error("❌ DEBUG Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+
 
 export default router;

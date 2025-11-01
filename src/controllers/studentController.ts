@@ -3,6 +3,8 @@ import prisma from "../prisma";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateSequentialRollNumber } from "../utils/rollNumber";
+import { sendEmail } from "../utils/sendEmail";
+
 
 // ✅ Create one or multiple students
 export const createStudent = async (req: Request, res: Response) => {
@@ -310,23 +312,66 @@ export const getStudent = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Update student
+// ✅ Update student and notify if approved
 export const updateStudent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const student = await prisma.student.update({
+    const updates = req.body;
+
+    // fetch the student before updating (to compare)
+    const prev = await prisma.student.findUnique({
       where: { id: Number(id) },
-      data: req.body,
       include: { school: true, department: true },
     });
 
-    res.json({ message: "Student updated successfully", student });
+    const updated = await prisma.student.update({
+      where: { id: Number(id) },
+      data: updates,
+      include: { school: true, department: true },
+    });
+
+    // 🧩 Check if just approved
+    if (prev?.approvalStatus !== "approved" && updates.approvalStatus === "approved") {
+      const message = `
+Dear ${updated.firstName} ${updated.lastName},
+
+🎓 Your registration at ${updated.school.name} has been approved!
+
+Here are your details:
+• Roll Number: ${updated.rollNumber}
+• Admission Number: ${updated.admissionNo}
+• Department: ${updated.department?.name ?? "N/A"}
+
+You can now log in to your student portal:
+https://${updated.subdomain}.acadex.app/portal/student/dashboard
+
+Best regards,
+${updated.school.name} Administration
+`;
+
+      // 📨 Send via email (we'll create sendEmail next)
+      try {
+        await sendEmail({
+          to: updated.email,
+          subject: `Your ${updated.school.name} account has been approved`,
+          text: message,
+        });
+      } catch (err) {
+        console.error("❌ Failed to send approval email:", err);
+      }
+
+      // Optional: send SMS if you integrate one
+      // await sendSMS(updated.contactNumber, message);
+    }
+
+    res.json({ message: "Student updated successfully", student: updated });
   } catch (error: any) {
     if (error.code === "P2025")
       return res.status(404).json({ error: "Student not found" });
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // ✅ Delete student
 export const deleteStudent = async (req: Request, res: Response) => {

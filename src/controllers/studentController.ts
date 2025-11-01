@@ -169,60 +169,45 @@ export const registerStudent = async (req: Request, res: Response) => {
       schoolSubdomain,
     } = req.body;
 
-    console.log("🔍 Parsed fields:", {
-      firstName,
-      lastName,
-      email,
-      password: password ? "***" : "MISSING",
-      gender,
-      dob,
-      admissionNo,
-      department,
-      level,
-      class: klass,
-      semester,
-      term,
-      academicYear,
-      contactNumber,
-      schoolSubdomain,
-    });
-
-    // Validation with detailed errors
-    if (!schoolSubdomain) {
-      console.log("❌ Missing schoolSubdomain");
+    // 🧩 Validation
+    if (!schoolSubdomain)
       return res.status(400).json({ error: "School subdomain is required" });
-    }
 
-    if (!email || !password || !firstName || !lastName) {
-      console.log("❌ Missing required fields:", {
-        email: !!email,
-        password: !!password,
-        firstName: !!firstName,
-        lastName: !!lastName
-      });
+    if (!email || !password || !firstName || !lastName)
       return res.status(400).json({ error: "Missing required fields" });
-    }
 
+    // 🧩 Find school
     const school = await prisma.school.findUnique({
       where: { subdomain: schoolSubdomain },
     });
-    if (!school) {
-      console.log("❌ School not found for subdomain:", schoolSubdomain);
+    if (!school)
       return res.status(404).json({ error: "School not found" });
+
+    // 🧩 Find department (optional)
+    let departmentId: string | null = null;
+    if (department) {
+      const foundDept = await prisma.department.findFirst({
+        where: {
+          name: { equals: department, mode: "insensitive" },
+          schoolId: school.id,
+        },
+      });
+      if (foundDept) departmentId = foundDept.id;
     }
 
+    // 🧩 Check duplicate email
     const existing = await prisma.student.findUnique({ where: { email } });
-    if (existing) {
-      console.log("❌ Email already exists:", email);
+    if (existing)
       return res.status(400).json({ error: "Email already registered" });
-    }
 
+    // 🧩 Hash password
     const hashed = await bcrypt.hash(password, 10);
-    
-    // ✅ Auto-generate global roll number
+
+    // 🧩 Generate global roll number
     const rollNumber = await generateSequentialRollNumber();
     console.log("✅ Generated roll number:", rollNumber);
 
+    // 🧩 Create student
     const student = await prisma.student.create({
       data: {
         rollNumber,
@@ -232,19 +217,18 @@ export const registerStudent = async (req: Request, res: Response) => {
         password: hashed,
         gender,
         dob: dob ? new Date(dob) : null,
-        admissionNo: admissionNo || rollNumber, // Use rollNumber as fallback
-        department,
+        admissionNo: admissionNo || rollNumber,
         level,
-        class: klass,
-        semester,
-        term,
+        class: klass || null,
+        semester: semester || null,
+        term: term || null,
         academicYear,
         contactNumber,
         schoolId: school.id,
+        departmentId, // ✅ fixed
         subdomain: school.subdomain,
         status: "active",
         approvalStatus: "approved",
-        // Add missing required fields
         performance: {
           exams: [],
           averageScore: 0,
@@ -255,7 +239,7 @@ export const registerStudent = async (req: Request, res: Response) => {
     });
 
     console.log("✅ Student created successfully:", student.id);
-    res.status(201).json({
+    return res.status(201).json({
       message: "✅ Registration successful",
       student: {
         id: student.id,
@@ -267,10 +251,10 @@ export const registerStudent = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("❌ Registration error:", err);
-    console.error("❌ Error details:", err.message);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // ✅ Login Student
 export const loginStudent = async (req: Request, res: Response) => {

@@ -227,8 +227,8 @@ export const registerStudent = async (req: Request, res: Response) => {
         schoolId: school.id,
         departmentId, // ✅ fixed
         subdomain: school.subdomain,
-        status: "active",
-        approvalStatus: "approved",
+        status: "pending",
+        approvalStatus: "pending",
         performance: {
           exams: [],
           averageScore: 0,

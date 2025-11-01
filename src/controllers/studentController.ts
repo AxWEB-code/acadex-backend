@@ -372,7 +372,6 @@ ${updated.school.name} Administration
   }
 };
 
-
 // ✅ Delete student
 export const deleteStudent = async (req: Request, res: Response) => {
   try {

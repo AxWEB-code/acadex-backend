@@ -1,12 +1,6 @@
 import nodemailer from "nodemailer";
 console.log("SMTP_USER:", process.env.SMTP_USER);
 
-
-/**
- * Sends an email using SMTP (Gmail, Outlook, or custom provider).
- * Requires .env variables:
- *  EMAIL_USER, EMAIL_PASS, EMAIL_FROM
- */
 export async function sendEmail({
   to,
   subject,
@@ -18,30 +12,27 @@ export async function sendEmail({
   text?: string;
   html?: string;
 }) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn("⚠️ Email credentials missing in .env file.");
     return;
   }
 
-  // ✅ Create transporter
   const transporter = nodemailer.createTransport({
-    service: "gmail", // change to your provider if not Gmail
+    service: process.env.SMTP_SERVICE || "gmail",
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
   });
 
-  // ✅ Define mail options
   const mailOptions = {
-    from: process.env.EMAIL_FROM || `"AcadeX Notifications" <${process.env.EMAIL_USER}>`,
+    from: process.env.SMTP_FROM || `"AcadeX Notifications" <${process.env.SMTP_USER}>`,
     to,
     subject,
     text,
     html,
   };
 
-  // ✅ Send email
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log(`📧 Email sent: ${info.messageId}`);

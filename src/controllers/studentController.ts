@@ -312,56 +312,93 @@ export const getStudent = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Update student and notify if approved
+// ✅ Update student and notify if approved or reverted
 export const updateStudent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    // fetch the student before updating (to compare)
+    // Fetch previous record to compare
     const prev = await prisma.student.findUnique({
       where: { id: Number(id) },
       include: { school: true, department: true },
     });
 
+    if (!prev) return res.status(404).json({ error: "Student not found" });
+
+    // Apply updates
     const updated = await prisma.student.update({
       where: { id: Number(id) },
       data: updates,
       include: { school: true, department: true },
     });
 
-    // 🧩 Check if just approved
-    if (prev?.approvalStatus !== "approved" && updates.approvalStatus === "approved") {
+    // ------------------------------------
+    // ✅ Case 1: Newly approved
+    // ------------------------------------
+    if (prev.approvalStatus !== "approved" && updates.approvalStatus === "approved") {
       const message = `
 Dear ${updated.firstName} ${updated.lastName},
 
-🎓 Your registration at ${updated.school.name} has been approved!
+🎓 Congratulations! Your registration at ${updated.school.name} has been *approved*.
 
-Here are your details:
+Here are your login details:
 • Roll Number: ${updated.rollNumber}
 • Admission Number: ${updated.admissionNo}
 • Department: ${updated.department?.name ?? "N/A"}
 
-You can now log in to your student portal:
-https://${updated.subdomain}.acadex.app/portal/student/dashboard
+You can now log in to your portal:
+👉 https://${updated.subdomain}.acadex.app/portal/student/dashboard
 
 Best regards,
 ${updated.school.name} Administration
 `;
 
-      // 📨 Send via email (we'll create sendEmail next)
       try {
         await sendEmail({
           to: updated.email,
-          subject: `Your ${updated.school.name} account has been approved`,
+          subject: `✅ Account Approved — ${updated.school.name}`,
           text: message,
         });
+        console.log(`📨 Approval email sent to ${updated.email}`);
       } catch (err) {
         console.error("❌ Failed to send approval email:", err);
       }
+    }
 
-      // Optional: send SMS if you integrate one
-      // await sendSMS(updated.contactNumber, message);
+    // ------------------------------------
+    // ⚠️ Case 2: Approval Reversed or Account Deactivated
+    // ------------------------------------
+    else if (
+      prev.approvalStatus === "approved" &&
+      ["pending", "rejected"].includes(updates.approvalStatus)
+    ) {
+      const reason =
+        updates.approvalStatus === "pending"
+          ? "Your account has been moved back to pending status for review."
+          : "Your account has been deactivated or rejected by your school administrator.";
+
+      const message = `
+Dear ${updated.firstName} ${updated.lastName},
+
+⚠️ ${reason}
+
+Please contact your school's administration for further clarification.
+
+Regards,
+${updated.school.name} Team
+`;
+
+      try {
+        await sendEmail({
+          to: updated.email,
+          subject: `⚠️ Account Status Update — ${updated.school.name}`,
+          text: message,
+        });
+        console.log(`📨 Reversal/deactivation email sent to ${updated.email}`);
+      } catch (err) {
+        console.error("❌ Failed to send reversal email:", err);
+      }
     }
 
     res.json({ message: "Student updated successfully", student: updated });

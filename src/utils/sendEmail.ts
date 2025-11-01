@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+console.log("SMTP_USER:", process.env.SMTP_USER);
+
 
 /**
  * Sends an email using SMTP (Gmail, Outlook, or custom provider).

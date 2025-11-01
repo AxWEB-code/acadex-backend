@@ -3,9 +3,9 @@ import dotenv from "dotenv";
 dotenv.config();
 import cors from "cors";
 import { PrismaClient } from "@prisma/client";
+import { sendEmail } from "./utils/sendEmail";
 
 // ✅ Initialize environment
-dotenv.config();
 console.log("🔄 Booting AcadeX backend...");
 
 const app = express();
@@ -118,12 +118,12 @@ app.use(
 
 
 // in your index.ts or a temporary route file
-import { sendEmail } from "./utils/sendEmail";
+
 
 app.get("/test-email", async (_req, res) => {
   try {
     await sendEmail({
-      to: "yourpersonalemail@gmail.com",
+      to: "hello.acadex@gmail.com",
       subject: "✅ AcadeX Test Email",
       text: "If you received this, your email setup works perfectly!"
     });

@@ -17,6 +17,16 @@ export async function sendEmail({
     return;
   }
 
+
+  console.log("🧩 Loaded SMTP ENV:", {
+  user: process.env.SMTP_USER,
+  pass: process.env.SMTP_PASS ? "✅ Exists" : "❌ Missing",
+  from: process.env.SMTP_FROM,
+  service: process.env.SMTP_SERVICE,
+});
+
+
+
   const transporter = nodemailer.createTransport({
     service: process.env.SMTP_SERVICE || "gmail",
     auth: {

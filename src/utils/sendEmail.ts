@@ -1,12 +1,5 @@
 import nodemailer from "nodemailer";
 
-console.log("🧩 Loaded SMTP ENV:", {
-  user: process.env.SMTP_USER,
-  pass: process.env.SMTP_PASS ? "✅ Exists" : "❌ Missing",
-  from: process.env.SMTP_FROM,
-  service: process.env.SMTP_HOST,
-});
-
 export async function sendEmail({
   to,
   subject,
@@ -18,39 +11,43 @@ export async function sendEmail({
   text?: string;
   html?: string;
 }) {
-  const {
-    SMTP_HOST,
-    SMTP_PORT,
-    SMTP_USER,
-    SMTP_PASS,
-    SMTP_FROM,
-  } = process.env;
+  // 🧩 Debug log (optional)
+  console.log("🧩 Using Gmail SMTP:", {
+    user: process.env.SMTP_USER,
+    from: process.env.SMTP_FROM,
+    service: process.env.SMTP_SERVICE,
+  });
 
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.warn("⚠️ Missing SMTP credentials in .env");
+  // ✅ Check envs
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn("⚠️ Email credentials missing in .env file.");
     return;
   }
 
+  // ✅ Gmail Transporter
   const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT) || 587,
-    secure: false,
+    service: process.env.SMTP_SERVICE || "gmail",
     auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
   });
 
+  const mailOptions = {
+    from:
+      process.env.SMTP_FROM ||
+      `"AcadeX Notifications" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+    html,
+  };
+
   try {
-    const info = await transporter.sendMail({
-      from: SMTP_FROM || `"AcadeX Notifications" <${SMTP_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-    });
-    console.log(`📧 Email sent successfully via Brevo: ${info.messageId}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Email sent successfully: ${info.messageId}`);
   } catch (err) {
     console.error("❌ Email sending failed:", err);
+    throw err;
   }
 }

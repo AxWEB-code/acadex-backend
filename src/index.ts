@@ -123,8 +123,8 @@ app.use(
 app.get("/test-email", async (_req, res) => {
   try {
     await sendEmail({
-      to: "yourpersonalemail@gmail.com",
-      subject: "✅ AcadeX Test Email (Brevo)",
+      to: "gozimarvis@gmail.com",
+      subject: "✅ AcadeX Test Email ",
       text: "If you received this, Brevo SMTP works perfectly on Render!",
     });
     res.send("✅ Test email sent successfully");

@@ -342,7 +342,7 @@ Dear ${updated.firstName} ${updated.lastName},
 
 🎓 Congratulations! Your registration at ${updated.school.name} has been *approved*.
 
-Here are your login details:
+Here are your details:
 • Roll Number: ${updated.rollNumber}
 • Admission Number: ${updated.admissionNo}
 • Department: ${updated.department?.name ?? "N/A"}

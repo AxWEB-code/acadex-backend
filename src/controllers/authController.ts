@@ -291,3 +291,85 @@ export const registerSchool = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+/**
+ * ✅ Forgot Password + Reset Password
+ */
+import nodemailer from "nodemailer";
+
+// Setup Nodemailer
+const transporter = nodemailer.createTransport({
+  service: process.env.SMTP_SERVICE || "gmail",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+
+/**
+ * 🔹 Forgot Password - Send Reset Link
+ */
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    // Check if student exists
+    const student = await prisma.student.findUnique({ where: { email } });
+    if (!student) {
+      return res.status(404).json({ error: "No student found with this email." });
+    }
+
+    // Create reset token
+    const token = jwt.sign({ id: student.id }, JWT_SECRET, { expiresIn: "1h" });
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    // Send email
+    await transporter.sendMail({
+      from: `"AcadeX Support" <${process.env.GMAIL_USER}>`,
+      to: student.email,
+      subject: "Password Reset Request",
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>Hello ${student.firstName},</p>
+        <p>We received a request to reset your password. Click the link below to create a new one. 
+        This link expires in <b>1 hour</b>.</p>
+        <a href="${resetLink}" 
+           style="background:#2563eb;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;">Reset Password</a>
+        <p>If you didn’t request this, please ignore this email.</p>
+      `,
+    });
+
+    res.json({ message: "✅ Reset link sent successfully to your email." });
+  } catch (error: any) {
+    console.error("forgotPassword error:", error);
+    res.status(500).json({ error: "Failed to send reset email." });
+  }
+};
+
+/**
+ * 🔹 Reset Password - Confirm New Password
+ */
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: "Missing token or new password." });
+    }
+
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await prisma.student.update({
+      where: { id: decoded.id },
+      data: { password: hashed },
+    });
+
+    res.json({ message: "✅ Password reset successful." });
+  } catch (error: any) {
+    console.error("resetPassword error:", error);
+    res.status(400).json({ error: "Invalid or expired reset token." });
+  }
+};

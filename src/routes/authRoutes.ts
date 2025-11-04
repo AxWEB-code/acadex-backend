@@ -1,25 +1,25 @@
 import { Router } from "express";
-import { protect, isAdmin } from "../middleware/authMiddleware";
 import {
-  approveStudent,
-  rejectStudent,
-  getPendingStudents,
-  getApprovedStudents,
-} from "../controllers/approvalController";
-import { forgotPassword, resetPassword } from "../controllers/authController";
+  registerStudent,
+  loginStudent,
+  adminLogin,
+  registerSchool,
+  forgotPassword,
+  resetPassword,
+} from "../controllers/authController";
 
 const router = Router();
 
-// 🧩 Approval actions
-router.post("/students/:id/approve", protect, isAdmin, approveStudent);
-router.post("/students/:id/reject", protect, isAdmin, rejectStudent);
+// 🧑‍🎓 Student routes
+router.post("/students/register", registerStudent);
+router.post("/students/login", loginStudent);
 
-// 🧩 Admin dashboard lists
-router.get("/students/pending", protect, isAdmin, getPendingStudents);
-router.get("/students/approved", protect, isAdmin, getApprovedStudents);
+// 🏫 School admin routes
+router.post("/admin/register", registerSchool);
+router.post("/admin/login", adminLogin);
 
-// 🧩 Forgot/Reset Password
-router.post("/auth/forgot-password", forgotPassword);
-router.post("/auth/reset-password", resetPassword);
+// 🔐 Password management
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;

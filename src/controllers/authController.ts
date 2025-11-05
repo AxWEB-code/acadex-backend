@@ -187,33 +187,68 @@ export const loginStudent = async (req: Request, res: Response) => {
  */
 export const adminLogin = async (req: Request, res: Response) => {
   try {
-    const { email, password, rememberMe } = req.body;
+    const { email, password, rememberMe, schoolSubdomain } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ message: "Email and password required." });
+    // 🔍 Step 1: Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
+    }
 
-    const school = await prisma.school.findFirst({
-      where: { adminEmail: email },
-    });
+    console.log("🟢 Admin login request:", { email, schoolSubdomain });
 
-    if (!school)
-      return res.status(404).json({ message: "Admin not found for this email." });
+    // 🔍 Step 2: Try finding school by subdomain + email
+    let school = null;
 
-    if (!school.adminPassword)
-      return res.status(400).json({ message: "Admin password not set." });
+    if (schoolSubdomain) {
+      school = await prisma.school.findFirst({
+        where: {
+          subdomain: schoolSubdomain,
+          adminEmail: email,
+        },
+      });
+      console.log("🔍 Found by subdomain?", !!school);
+    }
 
+    // fallback — just in case subdomain is missing
+    if (!school) {
+      school = await prisma.school.findFirst({
+        where: { adminEmail: email },
+      });
+      console.log("🔍 Found by email fallback?", !!school);
+    }
+
+    if (!school) {
+      console.log("❌ No school found for this email/subdomain");
+      return res.status(404).json({ message: "Admin not found for this email or school." });
+    }
+
+    if (!school.adminPassword) {
+      console.log("⚠️ Admin password not set for school:", school.id);
+      return res.status(400).json({ message: "Admin password not set for this school." });
+    }
+
+    // 🔑 Step 3: Compare passwords
     const validPassword = await bcrypt.compare(password, school.adminPassword);
-    if (!validPassword)
+    console.log("🧩 Password match:", validPassword);
+
+    if (!validPassword) {
       return res.status(401).json({ message: "Invalid password." });
+    }
 
-    // ⏳ Token expiry
+    // 🔐 Step 4: Sign JWT
     const expiresIn = rememberMe ? "30d" : "7d";
-
     const token = jwt.sign(
-      { id: school.id, role: "admin", schoolCode: school.schoolCode },
+      {
+        id: school.id,
+        role: "admin",
+        schoolCode: school.schoolCode,
+        subdomain: school.subdomain,
+      },
       JWT_SECRET,
       { expiresIn }
     );
+
+    console.log("✅ Admin login successful:", { id: school.id, email: school.adminEmail });
 
     res.json({
       message: "Admin login successful",
@@ -227,11 +262,10 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("adminLogin error:", error);
+    console.error("❌ adminLogin error:", error);
     res.status(500).json({
       message: "Server error during admin login",
-      details: error.message || error,
-      stack: process.env.NODE_ENV !== "production" ? error.stack : undefined,
+      details: error.message,
     });
   }
 };

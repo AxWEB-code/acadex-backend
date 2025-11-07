@@ -17,6 +17,8 @@ router.post("/students/login", loginStudent);
 // 🏫 School admin routes
 router.post("/admin/register", registerSchool);
 router.post("/admin/login", adminLogin);
+router.post("/admin/register-role", registerAdminUser);
+
 
 // 🔐 Password management
 router.post("/forgot-password", forgotPassword);

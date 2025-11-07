@@ -14,7 +14,7 @@ model School {
   logo              String?
   schoolCode        String       @unique
   schoolType        SchoolType   @default(CBT)
-  status         String?         @default("active")
+  status            String?      @default("active")
   plan              String       @default("free")
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
@@ -24,6 +24,7 @@ model School {
   adminEmail        String?
   adminPassword     String?
   adminRoles        Json?
+  adminUsers        AdminUser[]
   students          Student[]
   exams             Exam[]
   departments       Department[]
@@ -104,7 +105,6 @@ model Student {
   examsTaken    Exam[]
   notifications Notification[]     @relation("StudentNotifications")
   examResults   ExamResult[]
-  
 }
 
 model Exam {
@@ -252,4 +252,19 @@ model Notification {
   studentId Int
   student   Student  @relation("StudentNotifications", fields: [studentId], references: [id])
   createdAt DateTime @default(now())
+}
+
+model AdminUser {
+  id        Int      @id @default(autoincrement())
+  schoolId  Int
+  firstName String
+  lastName  String
+  email     String   @unique
+  password  String
+  role      String // e.g. "general-admin", "admission-officer", "exam-officer"
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id])
 }

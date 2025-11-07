@@ -183,77 +183,66 @@ export const loginStudent = async (req: Request, res: Response) => {
 };
 
 /**
- * ✅ School Admin or Role-Based Admin Login
+ * ✅ Role-based Admin Login (each admin has their own account)
  */
 export const adminLogin = async (req: Request, res: Response) => {
   try {
     const { email, password, rememberMe, schoolSubdomain, role } = req.body;
 
-    // 🔍 Step 1: Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
+    if (!email || !password || !schoolSubdomain || !role) {
+      return res.status(400).json({ message: "All fields are required." });
     }
 
-    if (!role) {
-      return res.status(400).json({ message: "Admin role is required for login." });
-    }
-
-    // 🔍 Step 2: Find the school by subdomain
-    const school = await prisma.school.findFirst({
+    // Find the school
+    const school = await prisma.school.findUnique({
       where: { subdomain: schoolSubdomain },
     });
 
     if (!school) {
-      return res.status(404).json({ message: "School not found for this subdomain." });
+      return res.status(404).json({ message: "School not found." });
     }
 
-    console.log("🟢 Attempting admin login", { schoolSubdomain, role, email });
+    // Find the admin user by role + school
+    const admin = await prisma.adminUser.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        role,
+        schoolId: school.id,
+      },
+    });
 
-    // 🔍 Step 3: Check if role exists inside adminRoles JSON
-    const roleInfo = (school.adminRoles as any)?.[role];
-
-    if (!roleInfo || !roleInfo.email) {
-      return res.status(404).json({ message: `No admin found for role '${role}'.` });
+    if (!admin) {
+      return res.status(404).json({
+        message: `No admin account found for ${role} in this school.`,
+      });
     }
 
-    // 🔍 Step 4: Verify email matches
-    if (roleInfo.email.toLowerCase() !== email.toLowerCase()) {
-      return res.status(401).json({ message: "Email does not match this role." });
-    }
-
-    // 🔐 Step 5: Validate password
-    if (!school.adminPassword) {
-      return res.status(400).json({ message: "Admin password not set for this school." });
-    }
-
-    const validPassword = await bcrypt.compare(password, school.adminPassword);
+    // Validate password
+    const validPassword = await bcrypt.compare(password, admin.password);
     if (!validPassword) {
       return res.status(401).json({ message: "Invalid password." });
     }
 
-    // 🕒 Step 6: Generate JWT
-    const expiresIn = rememberMe ? "30d" : "7d";
+    // Generate JWT
     const token = jwt.sign(
       {
-        id: school.id,
-        role, // ✅ Include role in token
-        schoolCode: school.schoolCode,
+        id: admin.id,
+        schoolId: school.id,
+        role: admin.role,
         subdomain: school.subdomain,
       },
       JWT_SECRET,
-      { expiresIn }
+      { expiresIn: rememberMe ? "30d" : "7d" }
     );
 
-    console.log("✅ Admin login successful:", { email, role });
-
-    // 🧩 Step 7: Return success response
     res.json({
-      message: "Admin login successful",
+      message: "✅ Admin login successful",
       token,
-      expiresIn,
       admin: {
-        role,
-        email: roleInfo.email,
+        id: admin.id,
+        name: `${admin.firstName} ${admin.lastName}`,
+        email: admin.email,
+        role: admin.role,
         schoolId: school.id,
         subdomain: school.subdomain,
         schoolCode: school.schoolCode,
@@ -267,6 +256,7 @@ export const adminLogin = async (req: Request, res: Response) => {
     });
   }
 };
+
 
 
 

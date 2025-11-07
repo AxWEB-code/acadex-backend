@@ -6,6 +6,7 @@ import {
   registerSchool,
   forgotPassword,
   resetPassword,
+  registerAdminUser
 } from "../controllers/authController";
 
 const router = Router();

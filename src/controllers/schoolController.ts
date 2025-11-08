@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../prisma";
 import { defaultSettings, defaultPermissions, adminRoles } from "../config/schoolDefaults";
-
+import bcrypt from "bcryptjs";
 
 // ✅ Helper function to generate random code/password
 const generateRandomCode = (prefix: string, subdomain: string) => {
@@ -34,9 +34,7 @@ export const createSchool = async (req: Request, res: Response) => {
         const existing = await prisma.school.findUnique({ where: { subdomain } });
         if (existing) continue;
 
-        const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(
-          Math.random() * 9000 + 1000
-        )}`;
+        const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`;
 
         const created = await prisma.school.create({
           data: {
@@ -58,14 +56,9 @@ export const createSchool = async (req: Request, res: Response) => {
               total_results: 0,
               recent_activity: [],
             },
-            // ✅ Automatically create departments
-            departments: {
-              create: departments || [],
-            },
+            departments: { create: departments || [] },
           },
-          include: {
-            departments: true,
-          },
+          include: { departments: true },
         });
 
         results.push(created);
@@ -77,32 +70,17 @@ export const createSchool = async (req: Request, res: Response) => {
       });
     }
 
-    // 🧩 Single School Creation (with optional departments)
-    const {
-      name,
-      subdomain,
-      logo,
-      schoolType,
-      plan,
-      status,
-      adminEmail,
-      adminPassword,
-      departments,
-    } = req.body;
+    // 🧩 Single School Creation
+    const { name, subdomain, logo, schoolType, plan, status, adminEmail, adminPassword, departments } = req.body;
 
-    if (!name || !subdomain) {
-      return res.status(400).json({ error: "Name and subdomain are required" });
-    }
+    if (!name || !subdomain) return res.status(400).json({ error: "Name and subdomain are required" });
 
     const existingSchool = await prisma.school.findUnique({ where: { subdomain } });
-    if (existingSchool) {
-      return res.status(400).json({ error: "Subdomain already exists" });
-    }
+    if (existingSchool) return res.status(400).json({ error: "Subdomain already exists" });
 
-    const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(
-      Math.random() * 9000 + 1000
-    )}`;
+    const schoolCode = `SCH-${subdomain.toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`;
 
+    // ✅ Step 1 — Create the school
     const school = await prisma.school.create({
       data: {
         name,
@@ -123,30 +101,75 @@ export const createSchool = async (req: Request, res: Response) => {
           total_results: 0,
           recent_activity: [],
         },
-        departments: {
-          create: departments || [],
-        },
+        departments: { create: departments || [] },
       },
-      include: {
-        departments: true,
-      },
+      include: { departments: true },
     });
 
-    res.status(201).json({
-      message: "✅ School created successfully with departments",
+    // ✅ Step 2 — Auto-create default admin accounts
+    const hashedMain = await bcrypt.hash(adminPassword, 10);
+    const hashedExam = await bcrypt.hash(`exam-${subdomain}-123`, 10);
+    const hashedResult = await bcrypt.hash(`result-${subdomain}-123`, 10);
+    const hashedAdmission = await bcrypt.hash(`admission-${subdomain}-123`, 10);
+
+    await prisma.adminUser.createMany({
+      data: [
+        {
+          schoolId: school.id,
+          firstName: "Main",
+          lastName: "Admin",
+          email: `admin@${subdomain}.acadex.com`,
+          password: hashedMain,
+          role: "mainAdmin",
+        },
+        {
+          schoolId: school.id,
+          firstName: "Exam",
+          lastName: "Officer",
+          email: `exam@${subdomain}.acadex.com`,
+          password: hashedExam,
+          role: "examAdmin",
+        },
+        {
+          schoolId: school.id,
+          firstName: "Result",
+          lastName: "Officer",
+          email: `result@${subdomain}.acadex.com`,
+          password: hashedResult,
+          role: "resultAdmin",
+        },
+        {
+          schoolId: school.id,
+          firstName: "Admission",
+          lastName: "Officer",
+          email: `admission@${subdomain}.acadex.com`,
+          password: hashedAdmission,
+          role: "admissionAdmin",
+        },
+      ],
+    });
+
+    // ✅ Step 3 — Return response
+    return res.status(201).json({
+      message: "✅ School created successfully with default admin accounts!",
       school,
+      defaultAdmins: [
+        { email: `admin@${subdomain}.acadex.com`, role: "mainAdmin", passwordHint: "Your chosen admin password" },
+        { email: `exam@${subdomain}.acadex.com`, role: "examAdmin", passwordHint: "exam-subdomain-123" },
+        { email: `result@${subdomain}.acadex.com`, role: "resultAdmin", passwordHint: "result-subdomain-123" },
+        { email: `admission@${subdomain}.acadex.com`, role: "admissionAdmin", passwordHint: "admission-subdomain-123" },
+      ],
     });
   } catch (error: any) {
     console.error("❌ Error creating school:", error);
 
-    if (error.code === "P1001")
-      return res.status(500).json({ error: "Cannot connect to database server" });
-    if (error.code === "P1012")
-      return res.status(500).json({ error: "Schema validation error" });
+    if (error.code === "P1001") return res.status(500).json({ error: "Cannot connect to database server" });
+    if (error.code === "P1012") return res.status(500).json({ error: "Schema validation error" });
 
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 // ✅ Get All Schools

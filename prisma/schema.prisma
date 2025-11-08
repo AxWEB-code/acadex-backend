@@ -43,7 +43,7 @@ model Department {
   name                   String
   code                   String?
   schoolId               Int
-  school                 School    @relation(fields: [schoolId], references: [id])
+  school                 School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students               Student[]
   courses                Course[]
   admissionFormatRegex   String?
@@ -51,6 +51,7 @@ model Department {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 }
+
 
 model Course {
   id           String         @id @default(cuid())
@@ -86,7 +87,7 @@ model Student {
   departmentId         String?
   department           Department? @relation(fields: [departmentId], references: [id])
   schoolId             Int
-  school               School      @relation(fields: [schoolId], references: [id])
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   approvalStatus       String      @default("pending")
   isActive             Boolean     @default(true)
   approvedBy           String?
@@ -132,7 +133,7 @@ model Exam {
   questions     ExamQuestion[]
   results       ExamResult[]
   notifications ExamNotification[]
-  school        School             @relation(fields: [schoolId], references: [id])
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students      Student[]
   examResults   Result[]           @relation("ExamResults") // ✅ FIXED: Same relation name
   accessCodes   ResultAccessCode[]
@@ -265,6 +266,7 @@ model AdminUser {
   status    String   @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
 
-  school School @relation(fields: [schoolId], references: [id])
 }

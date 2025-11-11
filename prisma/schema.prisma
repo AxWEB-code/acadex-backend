@@ -8,14 +8,14 @@ generator client {
 }
 
 model School {
-  id                Int          @id @default(autoincrement())
+  id                Int            @id @default(autoincrement())
   name              String
-  subdomain         String       @unique
+  subdomain         String         @unique
   logo              String?
-  schoolCode        String       @unique
-  schoolType        SchoolType   @default(CBT)
-  status            String?      @default("active")
-  plan              String       @default("free")
+  schoolCode        String         @unique
+  schoolType        SchoolType     @default(CBT)
+  status            String?        @default("active")
+  plan              String         @default("free")
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
   settings          Json?
@@ -28,11 +28,13 @@ model School {
   students          Student[]
   exams             Exam[]
   departments       Department[]
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  suspendedAt    DateTime?
-  suspensionNote String?
-  isDeleted      Boolean   @default(false)
+  subscriptions     Subscription[]
+  accessKeys        AccessKey[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  suspendedAt       DateTime?
+  suspensionNote    String?
+  isDeleted         Boolean        @default(false)
 }
 
 enum SchoolType {
@@ -46,7 +48,7 @@ model Department {
   name                   String
   code                   String?
   schoolId               Int
-  school                 School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school                 School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students               Student[]
   courses                Course[]
   admissionFormatRegex   String?
@@ -54,7 +56,6 @@ model Department {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 }
-
 
 model Course {
   id           String         @id @default(cuid())
@@ -90,7 +91,7 @@ model Student {
   departmentId         String?
   department           Department? @relation(fields: [departmentId], references: [id])
   schoolId             Int
-  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school               School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   approvalStatus       String      @default("pending")
   isActive             Boolean     @default(true)
   approvedBy           String?
@@ -136,7 +137,7 @@ model Exam {
   questions     ExamQuestion[]
   results       ExamResult[]
   notifications ExamNotification[]
-  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school        School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students      Student[]
   examResults   Result[]           @relation("ExamResults") // ✅ FIXED: Same relation name
   accessCodes   ResultAccessCode[]
@@ -259,62 +260,60 @@ model Notification {
 }
 
 model AdminUser {
-  id        Int      @id @default(autoincrement())
-  schoolId  Int
-  firstName String
-  lastName  String
-  email     String   @unique
-  password  String
-  role      String // e.g. "general-admin", "admission-officer", "exam-officer"
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  schoolId    Int
+  firstName   String
+  lastName    String
+  email       String    @unique
+  password    String
+  role        String // e.g. "general-admin", "admission-officer", "exam-officer"
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   suspendedAt DateTime?
   suspendedBy Int?
-
 }
 
 model SuperAdmin {
-  id          Int       @id @default(autoincrement())
-  name        String
-  email       String    @unique
-  password    String
-  role        String    @default("superadmin")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("superadmin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relations
-  logs        SystemLog[]
-  accessKeys  AccessKey[]
+  // 🔹 Relations
+  logs                SystemLog[]
+  accessKeys          AccessKey[]
+  platformSettings    PlatformSetting[]
+  globalNotifications GlobalNotification[]
 }
 
-
 model SystemLog {
-  id          Int       @id @default(autoincrement())
-  actorType   String     // "superadmin", "admin", "student"
-  actorId     Int?
-  action      String     // "CREATE_SCHOOL", "UPDATE_STUDENT", "APPROVE_EXAM", etc.
-  entityType  String     // "School", "Exam", "Student", "Result"
-  entityId    String?
-  details     Json?
-  timestamp   DateTime   @default(now())
+  id         Int      @id @default(autoincrement())
+  actorType  String // "superadmin", "admin", "student"
+  actorId    Int?
+  action     String // "CREATE_SCHOOL", "UPDATE_STUDENT", "APPROVE_EXAM", etc.
+  entityType String // "School", "Exam", "Student", "Result"
+  entityId   String?
+  details    Json?
+  timestamp  DateTime @default(now())
 
-  superAdmin  SuperAdmin? @relation(fields: [superAdminId], references: [id])
+  superAdmin   SuperAdmin? @relation(fields: [superAdminId], references: [id])
   superAdminId Int?
 }
 
-
 model PlatformSetting {
-  id                 Int      @id @default(autoincrement())
-  key                String   @unique
-  value              Json
-  description        String?
-  updatedAt          DateTime @updatedAt
-  updatedById        Int?
-  updatedBy          SuperAdmin? @relation(fields: [updatedById], references: [id])
+  id          Int         @id @default(autoincrement())
+  key         String      @unique
+  value       Json
+  description String?
+  updatedAt   DateTime    @updatedAt
+  updatedById Int?
+  updatedBy   SuperAdmin? @relation(fields: [updatedById], references: [id])
 }
-
 
 model Subscription {
   id            Int       @id @default(autoincrement())
@@ -331,13 +330,27 @@ model Subscription {
 }
 
 model GlobalNotification {
-  id         Int       @id @default(autoincrement())
+  id         Int         @id @default(autoincrement())
   title      String
   message    String
-  targetType String     // "school", "admin", "all"
+  targetType String // "school", "admin", "all"
   targetId   Int?
-  isRead     Boolean    @default(false)
-  createdAt  DateTime   @default(now())
+  isRead     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
   createdBy  Int?
   superAdmin SuperAdmin? @relation(fields: [createdBy], references: [id])
+}
+
+model AccessKey {
+  id          Int         @id @default(autoincrement())
+  key         String      @unique
+  type        String // "supervisor", "result-pin", "resit", etc.
+  schoolId    Int?
+  school      School?     @relation(fields: [schoolId], references: [id])
+  usageCount  Int         @default(0)
+  maxUses     Int         @default(1)
+  expiresAt   DateTime?
+  createdById Int?
+  createdBy   SuperAdmin? @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
 }

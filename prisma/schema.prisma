@@ -30,6 +30,9 @@ model School {
   departments       Department[]
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  suspendedAt    DateTime?
+  suspensionNote String?
+  isDeleted      Boolean   @default(false)
 }
 
 enum SchoolType {
@@ -267,6 +270,74 @@ model AdminUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  
+  suspendedAt DateTime?
+  suspendedBy Int?
 
+}
+
+model SuperAdmin {
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String    @unique
+  password    String
+  role        String    @default("superadmin")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  logs        SystemLog[]
+  accessKeys  AccessKey[]
+}
+
+
+model SystemLog {
+  id          Int       @id @default(autoincrement())
+  actorType   String     // "superadmin", "admin", "student"
+  actorId     Int?
+  action      String     // "CREATE_SCHOOL", "UPDATE_STUDENT", "APPROVE_EXAM", etc.
+  entityType  String     // "School", "Exam", "Student", "Result"
+  entityId    String?
+  details     Json?
+  timestamp   DateTime   @default(now())
+
+  superAdmin  SuperAdmin? @relation(fields: [superAdminId], references: [id])
+  superAdminId Int?
+}
+
+
+model PlatformSetting {
+  id                 Int      @id @default(autoincrement())
+  key                String   @unique
+  value              Json
+  description        String?
+  updatedAt          DateTime @updatedAt
+  updatedById        Int?
+  updatedBy          SuperAdmin? @relation(fields: [updatedById], references: [id])
+}
+
+
+model Subscription {
+  id            Int       @id @default(autoincrement())
+  schoolId      Int
+  school        School    @relation(fields: [schoolId], references: [id])
+  plan          String
+  status        String    @default("active")
+  amount        Float
+  reference     String?
+  paymentMethod String?
+  startedAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model GlobalNotification {
+  id         Int       @id @default(autoincrement())
+  title      String
+  message    String
+  targetType String     // "school", "admin", "all"
+  targetId   Int?
+  isRead     Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  createdBy  Int?
+  superAdmin SuperAdmin? @relation(fields: [createdBy], references: [id])
 }

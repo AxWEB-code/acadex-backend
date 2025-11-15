@@ -33,6 +33,12 @@ import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
 import syncRoutes from "./modules/offline/sync/syncRoutes";
 import superadminSchoolsRoute from "./routes/superadmin/schools/index";
+import superadminSchoolById from "./routes/superadmin/schools/schoolById";
+import superadminStudents from "./routes/superadmin/schools/students";
+import superadminExams from "./routes/superadmin/schools/exams";
+import superadminAdmins from "./routes/superadmin/schools/admins";
+import superadminResults from "./routes/superadmin/schools/results";
+
 
 
 // ✅ Mount Routes
@@ -45,6 +51,12 @@ app.use("/api/exams", examRoutes);
 app.use("/api/offline", offlineRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/superadmin/schools", superadminSchoolsRoute);
+app.use("/api/superadmin/schools", superadminSchoolById);
+app.use("/api/superadmin/schools", superadminStudents);
+app.use("/api/superadmin/schools", superadminExams);
+app.use("/api/superadmin/schools", superadminAdmins);
+app.use("/api/superadmin/schools", superadminResults);
+
 console.log("✅ Routes mounted successfully");
 
 // ✅ Root Route
@@ -134,6 +146,13 @@ app.get("/test-email", async (_req, res) => {
   }
 });
 
+
+
+app.use(cors({
+  origin: "*",  
+  methods: "GET,POST,PUT,DELETE",
+  allowedHeaders: "Content-Type, Authorization",
+}));
 
 
 startServer();

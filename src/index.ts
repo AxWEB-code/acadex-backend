@@ -32,6 +32,7 @@ import { protect, isAdmin } from "./middleware/authMiddleware";
 import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
 import syncRoutes from "./modules/offline/sync/syncRoutes";
+import superadminSchoolsRoute from "./routes/superadmin/schools/index";
 
 
 // ✅ Mount Routes
@@ -43,7 +44,7 @@ app.use("/api/approvals", approvalRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/offline", offlineRoutes);
 app.use("/api/sync", syncRoutes);
-
+app.use("/api/superadmin/schools", superadminSchoolsRoute);
 console.log("✅ Routes mounted successfully");
 
 // ✅ Root Route

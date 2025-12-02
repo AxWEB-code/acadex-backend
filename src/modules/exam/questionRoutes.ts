@@ -3,7 +3,7 @@ import {
   addQuestionHandler,
   getExamQuestionsHandler,
   bulkUploadQuestionsHandler
-} from "./questionController";
+} from "./questionController.old";
 import { protect } from "../../middleware/authMiddleware";
 
 const router = Router();

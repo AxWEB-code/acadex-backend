@@ -193,7 +193,7 @@ export const adminLogin = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
-    // Find the school
+    // 1️⃣ Find the school
     const school = await prisma.school.findUnique({
       where: { subdomain: schoolSubdomain },
     });
@@ -202,8 +202,8 @@ export const adminLogin = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "School not found." });
     }
 
-    // Find the admin user by role + school
-    const admin = await prisma.adminUser.findFirst({
+    // 2️⃣ Try role-based AdminUser login FIRST
+    let admin = await prisma.adminUser.findFirst({
       where: {
         email: email.toLowerCase(),
         role,
@@ -211,43 +211,86 @@ export const adminLogin = async (req: Request, res: Response) => {
       },
     });
 
-    if (!admin) {
-      return res.status(404).json({
-        message: `No admin account found for ${role} in this school.`,
+    // If adminUser was found, verify password
+    if (admin) {
+      const validPassword = await bcrypt.compare(password, admin.password);
+      if (!validPassword)
+        return res.status(401).json({ message: "Invalid password." });
+
+      // Generate Token
+      const token = jwt.sign(
+        {
+          id: admin.id,
+          schoolId: school.id,
+          role: admin.role,
+          subdomain: school.subdomain,
+        },
+        JWT_SECRET,
+        { expiresIn: rememberMe ? "30d" : "7d" }
+      );
+
+      return res.json({
+        message: "✅ Admin login successful",
+        token,
+        admin: {
+          id: admin.id,
+          name: `${admin.firstName} ${admin.lastName}`,
+          email: admin.email,
+          role: admin.role,
+          schoolId: school.id,
+          subdomain: school.subdomain,
+          schoolCode: school.schoolCode,
+        },
       });
     }
 
-    // Validate password
-    const validPassword = await bcrypt.compare(password, admin.password);
-    if (!validPassword) {
-      return res.status(401).json({ message: "Invalid password." });
-    }
-
-    // Generate JWT
-    const token = jwt.sign(
-      {
-        id: admin.id,
-        schoolId: school.id,
-        role: admin.role,
-        subdomain: school.subdomain,
-      },
-      JWT_SECRET,
-      { expiresIn: rememberMe ? "30d" : "7d" }
-    );
-
-    res.json({
-      message: "✅ Admin login successful",
-      token,
-      admin: {
-        id: admin.id,
-        name: `${admin.firstName} ${admin.lastName}`,
-        email: admin.email,
-        role: admin.role,
-        schoolId: school.id,
-        subdomain: school.subdomain,
-        schoolCode: school.schoolCode,
-      },
+    // 3️⃣ FALLBACK: Login with school's built-in adminEmail/adminPassword
+if (email.toLowerCase() === (school.adminEmail ?? "").toLowerCase()) {
+  // Ensure adminPassword actually exists
+  if (!school.adminPassword) {
+    return res.status(500).json({
+      message: "School admin password is not set. Please contact support.",
     });
+  }
+
+  const validPassword = await bcrypt.compare(password, school.adminPassword);
+  if (!validPassword) {
+    return res.status(401).json({ message: "Invalid password." });
+  }
+
+  const defaultRole = "mainAdmin";
+
+  const token = jwt.sign(
+    {
+      id: school.id,
+      schoolId: school.id,
+      role: defaultRole,
+      subdomain: school.subdomain,
+    },
+    JWT_SECRET,
+    { expiresIn: rememberMe ? "30d" : "7d" }
+  );
+
+  return res.json({
+    message: "✅ Main School Admin login successful",
+    token,
+    admin: {
+      id: school.id,
+      name: "School Admin",
+      email: school.adminEmail,
+      role: defaultRole,
+      schoolId: school.id,
+      subdomain: school.subdomain,
+      schoolCode: school.schoolCode,
+    },
+  });
+}
+
+    // If neither AdminUser nor school admin matched:
+    return res.status(404).json({
+      message: "No admin account found for these credentials.",
+    });
+
   } catch (error: any) {
     console.error("❌ adminLogin error:", error);
     res.status(500).json({
@@ -256,6 +299,7 @@ export const adminLogin = async (req: Request, res: Response) => {
     });
   }
 };
+
 
 
 

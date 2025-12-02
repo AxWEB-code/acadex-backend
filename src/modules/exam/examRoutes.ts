@@ -6,28 +6,65 @@ import {
   getExamByIdHandler,
   approveExamHandler,
   updateExamStatusHandler,
-  getExamByCodeHandler
+  getExamByCodeHandler,
+  publishExamHandler  
 } from "./examController";
+import { createExamPaperHandler } from "./paperController";
+import { addTheoryQuestion, addBulkTheoryQuestions } from "./theoryController";
+import { addPracticalItem, addBulkPracticalItems } from "./practicalController";
+
+
 
 const router = Router();
 
 // All exam routes are protected
 router.use(protect);
 
-// Routes that use controller functions
-router.get("/", getExamsHandler); // Get all exams
-router.post("/", createExamHandler); // Create exam
-router.get("/:id", getExamByIdHandler); // Get exam by ID
-router.get("/code/:examCode", getExamByCodeHandler); // Get exam by code
-router.patch("/:id/approve", approveExamHandler); // Approve exam
-router.patch("/:id/status", updateExamStatusHandler); // Update exam status
+// -------------------------------
+// ORDER MATTERS!
+// -------------------------------
 
-// Optional: Keep your test route
+// 👉 1. GET exam by code (more specific)
+router.get("/code/:examCode", getExamByCodeHandler);
+
+// 👉 2. GET all exams
+router.get("/", getExamsHandler);
+
+// 👉 3. Create exam
+router.post("/", createExamHandler);
+
+// 👉 4. Create exam paper
+router.post("/:examId/papers", createExamPaperHandler);
+
+// 👉 5. Approve exam
+router.patch("/:id/approve", approveExamHandler);
+
+// 👉 6. Update status
+router.patch("/:id/status", updateExamStatusHandler);
+
+// 👉 7. GET exam by ID (must ALWAYS be last)
+router.get("/:id", getExamByIdHandler);
+
+// THEORY
+router.post("/:examId/papers/:paperId/theory", addTheoryQuestion);
+router.post("/:examId/papers/:paperId/theory/bulk", addBulkTheoryQuestions);
+
+// PRACTICAL CHECKLIST
+router.post("/:examId/papers/:paperId/practical", addPracticalItem);
+router.post("/:examId/papers/:paperId/practical/bulk", addBulkPracticalItems);
+
+router.post("/publish", publishExamHandler);
+
+
+
+
+
+// Optional test
 router.get("/test", (req, res) => {
-  res.json({ 
+  res.json({
     success: true,
     message: "🎯 Exam routes are working!",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 

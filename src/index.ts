@@ -1,156 +1,143 @@
 import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 dotenv.config();
+
 import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import { sendEmail } from "./utils/sendEmail";
-
-// ✅ Initialize environment
-console.log("🔄 Booting AcadeX backend...");
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 4000;
 
-// ✅ Middleware
+// ---------------------------------------------
+//  CORS FIRST
+// ---------------------------------------------
 app.use(cors());
+
+// ---------------------------------------------
+//  FILE UPLOAD ROUTES (MULTER) MUST COME BEFORE express.json()
+// ---------------------------------------------
+import objImportRoutes from "./api/superadmin/exams/objImport.routes";
+app.use("/api/superadmin/exams", objImportRoutes);
+
+// ---------------------------------------------
+//  NOW JSON BODY PARSER
+// ---------------------------------------------
 app.use(express.json());
 
-// ✅ Log each request (for Render debugging)
+// ---------------------------------------------
+//  LOGGER
+// ---------------------------------------------
 app.use((req, _res, next) => {
   console.log(`📩 ${req.method} ${req.url}`);
   next();
 });
 
-// ✅ Import Routes
+
+
+// ---------------------------------------------
+//  IMPORT ROUTES
+// ---------------------------------------------
 import schoolRoutes from "./routes/schoolRoutes";
 import departmentRoutes from "./routes/departmentRoutes";
 import studentRoutes from "./routes/studentRoutes";
 import authRoutes from "./routes/authRoutes";
 import approvalRoutes from "./routes/approvalRoutes";
-import { protect, isAdmin } from "./middleware/authMiddleware";
+
 import examRoutes from "./modules/exam/examRoutes";
 import offlineRoutes from "./modules/offline/offlineRoutes";
 import syncRoutes from "./modules/offline/sync/syncRoutes";
-import superadminSchoolsRoute from "./routes/superadmin/schools/index";
+
+import superadminSchools from "./routes/superadmin/schools/index";
 import superadminStudents from "./routes/superadmin/schools/students";
 import superadminExams from "./routes/superadmin/schools/exams";
 import superadminAdmins from "./routes/superadmin/schools/admins";
 import superadminResults from "./routes/superadmin/schools/results";
 
+import superDepartmentRoutes from "./api/superadmin/schools/departments.routes";
 
-
-// ✅ Mount Routes
+// ---------------------------------------------
+//  MOUNT ROUTES
+// ---------------------------------------------
 app.use("/api/schools", schoolRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/approvals", approvalRoutes);
+
 app.use("/api/exams", examRoutes);
 app.use("/api/offline", offlineRoutes);
 app.use("/api/sync", syncRoutes);
-app.use("/api/superadmin/schools", superadminSchoolsRoute);
+
+app.use("/api/superadmin/schools", superadminSchools);
 app.use("/api/superadmin/schools", superadminStudents);
 app.use("/api/superadmin/schools", superadminExams);
 app.use("/api/superadmin/schools", superadminAdmins);
 app.use("/api/superadmin/schools", superadminResults);
 
-console.log("✅ Routes mounted successfully");
+app.use("/api/superadmin/schools", superDepartmentRoutes);
 
-// ✅ Root Route
-app.get("/", (_req: Request, res: Response) => {
+// ---------------------------------------------
+//  REMOVE OLD / WRONG ROUTES (DO NOT RE-ADD)
+// ---------------------------------------------
+// ❌ app.use("/api/superadmin/schools/:id/exams", require(...))
+// ❌ Duplicate cors()
+// ❌ Duplicate express.json()
+// ❌ Duplicate departmentRoutes
+// ❌ Any second objImportRoutes
+
+// ---------------------------------------------
+//  TEST ROUTES
+// ---------------------------------------------
+app.get("/", (_req, res) => {
   res.json({
     status: "OK",
     message: "🎓 AcadeX API is running successfully!",
   });
 });
 
-// ✅ Health Check Route
-app.get("/ping", (_req: Request, res: Response) => {
-  res.status(200).send("pong 🚀");
-});
+app.get("/ping", (_req, res) => res.send("pong 🚀"));
 
-app.get("/health", async (_req, res) => {
+app.get("/test-email", async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: "ok", db: "connected", uptime: process.uptime() });
-  } catch {
-    res.status(500).json({ status: "error", db: "disconnected" });
+    await sendEmail({
+      to: "gozimarvis@gmail.com",
+      subject: "AcadeX Test Email",
+      text: "SMTP working!",
+    });
+    res.send("Email sent!");
+  } catch (err) {
+    res.status(500).send("Email failed: " + err);
   }
 });
 
-
-
-// ✅ Protected Routes
-app.get("/api/protected", protect, (req: Request, res: Response) => {
-  res.json({
-    message: "✅ You are authenticated",
-    user: (req as any).user,
-  });
-});
-
-app.get("/api/admin-only", protect, isAdmin, (_req: Request, res: Response) => {
-  res.json({ message: "✅ You are an admin" });
-});
-
-// ✅ Global Error Handler (prevents Render 502 crashes)
+// ---------------------------------------------
+//  GLOBAL ERROR HANDLER
+// ---------------------------------------------
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error("❌ Global error handler caught:", err);
+  console.error("❌ Global Error Handler:", err);
   res.status(500).json({
     status: "error",
     message: err.message || "Internal Server Error",
   });
 });
 
-// ✅ Start Server only after DB connects
+// ---------------------------------------------
+//  START SERVER
+// ---------------------------------------------
 async function startServer() {
   try {
-    console.log("🔗 Connecting to database...");
     await prisma.$connect();
-    console.log("✅ Database connection established successfully.");
+    console.log("✅ Database connected");
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Test URL: http://localhost:${PORT}/ping`);
+      console.log(`🚀 Server running: http://localhost:${PORT}`);
     });
-  } catch (err: any) {
-    console.error("❌ Failed to connect to database:", err.message);
+  } catch (err) {
+    console.error("❌ Database connection failed:", err);
     process.exit(1);
   }
 }
-
-app.use(
-  cors({
-    origin: "*", // ✅ temporarily allow all origins for testing
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
-
-
-// in your index.ts or a temporary route file
-
-
-app.get("/test-email", async (_req, res) => {
-  try {
-    await sendEmail({
-      to: "gozimarvis@gmail.com",
-      subject: "✅ AcadeX Test Email ",
-      text: "If you received this, Brevo SMTP works perfectly on Render!",
-    });
-    res.send("✅ Test email sent successfully");
-  } catch (err) {
-    res.status(500).send("❌ Email failed: " + err);
-  }
-});
-
-
-
-app.use(cors({
-  origin: "*",  
-  methods: "GET,POST,PUT,DELETE",
-  allowedHeaders: "Content-Type, Authorization",
-}));
-
 
 startServer();

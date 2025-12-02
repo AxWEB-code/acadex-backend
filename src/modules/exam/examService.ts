@@ -1,5 +1,5 @@
-import prisma from "../../prisma"; // ✅ fixed relative path
-import { ExamStatus } from "@prisma/client"; // ✅ import enum type
+import prisma from "../../prisma";
+import { ExamStatus } from "@prisma/client";
 import { generateExamCode, validateExamData } from "./examUtils";
 
 /**
@@ -29,7 +29,7 @@ export const createExam = async (data: any) => {
   } = data;
 
   const examCode = generateExamCode(isResit);
-  let baseData: any = {
+  const baseData: any = {
     examTitle,
     examCode,
     mode,
@@ -41,12 +41,12 @@ export const createExam = async (data: any) => {
     startDate: new Date(startDate),
     endDate: new Date(endDate),
     duration,
-    isResit,
+    isResit: Boolean(isResit),
     createdById,
     schoolId: Number(schoolId),
   };
 
-  // ✅ Handle resit exam logic
+  // ✅ Resit logic (still allowed)
   if (isResit && linkedExamCode) {
     const linkedExam = await prisma.exam.findUnique({
       where: { examCode: linkedExamCode },
@@ -55,22 +55,22 @@ export const createExam = async (data: any) => {
 
     if (!linkedExam) throw new Error("Linked exam not found");
 
-    // Get failed courses
     const failedCourses = linkedExam.results
       .filter((result: any) => (result.score || 0) < 50)
       .map((result: any) => result.courseId);
 
     baseData.linkedExamId = linkedExam.id;
     baseData.examTitle = `${linkedExam.examTitle} (Resit)`;
-    baseData.failedCourses = failedCourses;
+    // you can store failedCourses later in another table if needed
   }
 
   const newExam = await prisma.exam.create({
     data: baseData,
     include: {
       school: true,
-      questions: true,
       results: true,
+      papers: true,
+      settings: true,
     },
   });
 
@@ -85,15 +85,20 @@ export const getExams = async (filters: any = {}) => {
 
   const where: any = {};
   if (schoolId) where.schoolId = Number(schoolId);
-  if (status) where.status = status as ExamStatus; // ✅ enum-safe cast
+  if (status) where.status = status as ExamStatus;
 
   const exams = await prisma.exam.findMany({
     where,
     include: {
       school: true,
-      questions: true,
       results: true,
-      _count: { select: { questions: true, results: true } },
+      papers: true,
+      _count: {
+        select: {
+          results: true,
+          papers: true,
+        },
+      },
     },
     skip: (Number(page) - 1) * Number(limit),
     take: Number(limit),
@@ -121,15 +126,30 @@ export const getExamById = async (id: string) => {
     where: { id },
     include: {
       school: true,
-      questions: { include: { course: true } },
-      results: { include: { student: true, course: true } },
+      papers: {
+        include: {
+          objectiveQuestions: true,
+          theoryQuestions: true,
+          practicalItems: true,
+        },
+      },
+      results: {
+        include: {
+          student: true,
+          course: true,
+        },
+      },
       notifications: true,
+      settings: true,
     },
   });
 
   if (!exam) throw new Error("Exam not found");
   return exam;
 };
+
+
+
 
 /**
  * ✅ Approve an exam
@@ -140,10 +160,9 @@ export const approveExam = async (id: string) => {
 
   const updatedExam = await prisma.exam.update({
     where: { id },
-    data: { status: ExamStatus.APPROVED }, // ✅ enum-safe update
+    data: { status: ExamStatus.APPROVED },
   });
 
-  // Create notification
   await prisma.examNotification.create({
     data: {
       examId: id,
@@ -172,6 +191,79 @@ export const updateExamStatus = async (id: string, status: string) => {
   const exam = await prisma.exam.update({
     where: { id },
     data: { status: status as ExamStatus },
+  });
+
+  return exam;
+};
+
+export const publishExam = async (basic: any, papers: any[], settings: any, notes: string) => {
+  // This function will handle the complete exam creation with papers & settings
+
+  // 1) Create exam (basic info)
+  const exam = await prisma.exam.create({
+    data: {
+      examTitle: basic.title,
+      examCode: basic.code,
+      mode: basic.mode,
+      examTypes: [], // TODO: fill based on papers
+      departmentId: basic.departmentId,
+      sessionYear: basic.startDate.split("-")[0],
+      startDate: new Date(basic.startDate),
+      endDate: new Date(basic.endDate),
+      duration: Number(basic.durationMinutes) || 0,
+      schoolId: Number(basic.schoolId),
+      createdById: "superadmin",
+    },
+  });
+
+  // 2) Create papers
+  for (const p of papers) {
+    const paper = await prisma.examPaper.create({
+      data: {
+        examId: exam.id,
+        name: p.name,
+        type: p.type,
+        duration: Number(p.durationMinutes) || 0,
+        totalMarks: Number(p.totalMarks) || 0,
+        totalQuestions: Number(p.totalQuestions) || 0,
+        shuffleQuestions: p.shuffleQuestions,
+        shuffleOptions: p.shuffleOptions,
+        negativeMarking: p.negativeMarking,
+      },
+    });
+
+    // Create objective questions
+    if (p.objectiveQuestions?.length) {
+      for (const q of p.objectiveQuestions) {
+        await prisma.objectiveQuestion.create({
+          data: {
+            paperId: paper.id,
+            text: q.text,
+            optionA: q.optionA,
+            optionB: q.optionB,
+            optionC: q.optionC,
+            optionD: q.optionD,
+            optionE: q.optionE,
+            correct: q.correct,
+            marks: Number(q.marks) || 1,
+          },
+        });
+      }
+    }
+  }
+
+  // 3) Create settings
+  await prisma.examSettings.create({
+    data: {
+      examId: exam.id,
+      allowBackNavigation: settings.allowBackNavigation,
+      allowReviewBeforeSubmit: settings.allowReviewBeforeSubmit,
+      showScoreAfterExam: settings.showScoreAfterExam,
+      autoSubmitOnTimeout: settings.autoSubmitOnTimeout,
+      offlineAllowed: settings.offlineAllowed,
+      attemptLimit: Number(settings.attemptLimit),
+      internalNotes: notes,
+    },
   });
 
   return exam;

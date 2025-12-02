@@ -58,15 +58,14 @@ model Department {
 }
 
 model Course {
-  id           String         @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
   code         String
   departmentId String
-  department   Department     @relation(fields: [departmentId], references: [id])
-  questions    ExamQuestion[]
+  department   Department   @relation(fields: [departmentId], references: [id])
   results      ExamResult[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Student {
@@ -134,13 +133,15 @@ model Exam {
   updatedAt    DateTime   @updatedAt
 
   // Relations
-  questions     ExamQuestion[]
   results       ExamResult[]
   notifications ExamNotification[]
   school        School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   students      Student[]
   examResults   Result[]           @relation("ExamResults") // ✅ FIXED: Same relation name
   accessCodes   ResultAccessCode[]
+
+  papers   ExamPaper[]
+  settings ExamSettings?
 
   @@index([examCode])
 }
@@ -161,21 +162,6 @@ enum ExamType {
   OBJECTIVE
   THEORY
   PRACTICAL
-}
-
-model ExamQuestion {
-  id            String   @id @default(cuid())
-  examId        String
-  courseId      String
-  questionType  ExamType
-  questionText  String?
-  questionFile  String?
-  correctAnswer String?
-  marks         Int?
-  createdAt     DateTime @default(now())
-
-  exam   Exam   @relation(fields: [examId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
 }
 
 model ExamResult {
@@ -353,4 +339,70 @@ model AccessKey {
   createdById Int?
   createdBy   SuperAdmin? @relation(fields: [createdById], references: [id])
   createdAt   DateTime    @default(now())
+}
+
+model ExamPaper {
+  id               String   @id @default(cuid())
+  examId           String
+  name             String
+  type             ExamType // OBJECTIVE, THEORY, PRACTICAL, MIXED
+  duration         Int
+  totalMarks       Int
+  totalQuestions   Int
+  shuffleQuestions Boolean  @default(true)
+  shuffleOptions   Boolean  @default(true)
+  negativeMarking  Boolean  @default(false)
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  objectiveQuestions ObjectiveQuestion[]
+  theoryQuestions    TheoryQuestion[]
+  practicalItems     PracticalChecklist[]
+}
+
+model ObjectiveQuestion {
+  id      String  @id @default(cuid())
+  paperId String
+  text    String
+  optionA String
+  optionB String
+  optionC String
+  optionD String
+  optionE String?
+  correct String?
+  marks   Int     @default(1)
+
+  paper ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+model TheoryQuestion {
+  id      String @id @default(cuid())
+  paperId String
+  text    String
+  marks   Int
+
+  paper ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+model PracticalChecklist {
+  id       String @id @default(cuid())
+  paperId  String
+  itemText String
+  maxScore Int    @default(1)
+
+  paper ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+model ExamSettings {
+  id                      String  @id @default(cuid())
+  examId                  String  @unique // ✅ FIXED: must be unique
+  allowBackNavigation     Boolean @default(true)
+  allowReviewBeforeSubmit Boolean @default(true)
+  showScoreAfterExam      Boolean @default(false)
+  autoSubmitOnTimeout     Boolean @default(true)
+  offlineAllowed          Boolean @default(false)
+  attemptLimit            Int     @default(1)
+  internalNotes           String?
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
 }

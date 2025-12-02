@@ -5,8 +5,10 @@ import {
   getExams,
   getExamById,
   approveExam,
-  updateExamStatus
+  updateExamStatus,
+  publishExam,
 } from "./examService";
+
 
 export const createExamHandler = async (req: Request, res: Response) => {
   try {
@@ -114,20 +116,48 @@ export const updateExamStatusHandler = async (req: Request, res: Response) => {
   }
 };
 
+export const publishExamHandler = async (req: Request, res: Response) => {
+  try {
+    const { basic, papers, settings, notes } = req.body;
+
+    const result = await publishExam(basic, papers, settings, notes);
+
+    res.status(201).json({
+      success: true,
+      message: "Exam successfully published",
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error("❌ Publish exam error:", error);
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+
 export const getExamByCodeHandler = async (req: Request, res: Response) => {
   try {
     const { examCode } = req.params;
-    
+
     const exam = await prisma.exam.findUnique({
       where: { examCode },
-      include: {
-        school: true,
-        questions: {
-          include: {
-            course: true
-          }
-        }
-      }
+     include: {
+  school: true,
+  papers: {
+    include: {
+      objectiveQuestions: true,
+      theoryQuestions: true,
+      practicalItems: true,
+    },
+  },
+  results: true,
+  settings: true,
+},
+
+
     });
 
     if (!exam) {

@@ -190,20 +190,62 @@ export const getSchools = async (req: Request, res: Response) => {
 };
 
 
-// ✅ Get Single School
+
+// ✅ Get Single School with stats
 export const getSchool = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid school id" });
+    }
+
+    // Fetch school main details
     const school = await prisma.school.findUnique({
-      where: { id: Number(id) },
-      include: { students: true, exams: true },
+      where: { id },
+      include: {
+        students: true,
+        exams: true,
+        departments: true,
+      },
     });
-    if (!school) return res.status(404).json({ error: "School not found" });
-    res.json(school);
+
+    if (!school) {
+      return res.status(404).json({ error: "School not found" });
+    }
+
+    // Count stats in parallel
+    const [
+      totalStudents,
+      totalDepartments,
+      activeExams,
+      pendingApprovals,
+    ] = await Promise.all([
+      prisma.student.count({ where: { schoolId: id } }),
+      prisma.department.count({ where: { schoolId: id } }),
+      prisma.exam.count({
+        where: { schoolId: id, status: "LIVE" }, // ExamStatus.LIVE
+      }),
+      prisma.student.count({
+        where: { schoolId: id, approvalStatus: "pending" },
+      }),
+    ]);
+
+    // Send full school object + computed stats
+    return res.json({
+      ...school,
+      totalStudents,
+      totalDepartments,
+      activeExams,
+      pendingApprovals,
+    });
+
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error fetching school:", error);
+    res.status(500).json({ error: "Failed to fetch school" });
   }
 };
+
 
 // ✅ Update School
 export const updateSchool = async (req: Request, res: Response) => {

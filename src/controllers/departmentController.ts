@@ -1,3 +1,4 @@
+// src/controllers/departmentController.ts
 import { Request, Response } from "express";
 import prisma from "../prisma";
 
@@ -14,6 +15,7 @@ export const createDepartment = async (req: Request, res: Response) => {
     const school = await prisma.school.findUnique({
       where: { id: Number(schoolId) },
     });
+
     if (!school) {
       return res.status(404).json({ error: "School not found" });
     }
@@ -26,41 +28,74 @@ export const createDepartment = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Department created successfully",
       department,
     });
   } catch (error) {
     console.error("❌ Error creating department:", error);
-    res.status(500).json({ error: "Failed to create department" });
+    return res.status(500).json({ error: "Failed to create department" });
   }
 };
 
-// ✅ Get all Departments
-export const getDepartments = async (req: Request, res: Response) => {
+// ✅ Get ALL Departments
+export const getDepartments = async (_req: Request, res: Response) => {
   try {
     const departments = await prisma.department.findMany({
-      include: { school: true },
+      include: {
+        school: true,
+      },
     });
-    res.status(200).json(departments);
+
+    return res.status(200).json(departments);
   } catch (error) {
     console.error("❌ Error fetching departments:", error);
-    res.status(500).json({ error: "Failed to fetch departments" });
+    return res.status(500).json({ error: "Failed to fetch departments" });
   }
 };
+
+// ✅ (Optional) Get ONE Department by id — in case you need it later
+// ✅ Get single department with students
+export const getDepartment = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const department = await prisma.department.findUnique({
+      where: { id },
+      include: {
+        students: true, // 👈 important so frontend gets dep.students[]
+      },
+    });
+
+    if (!department) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    res.json(department);
+  } catch (error: any) {
+    console.error("❌ Error fetching department:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch department" });
+  }
+};
+
 
 // ✅ Get Departments by School
 export const getDepartmentsBySchool = async (req: Request, res: Response) => {
   try {
     const { schoolId } = req.params;
+
     const departments = await prisma.department.findMany({
       where: { schoolId: Number(schoolId) },
+      include: {
+        students: true,
+        courses: true,
+      },
     });
 
-    res.status(200).json(departments);
+    return res.status(200).json(departments);
   } catch (error) {
     console.error("❌ Error fetching departments by school:", error);
-    res.status(500).json({ error: "Failed to fetch departments" });
+    return res.status(500).json({ error: "Failed to fetch departments" });
   }
 };
 
@@ -71,17 +106,17 @@ export const updateDepartment = async (req: Request, res: Response) => {
     const { name, code } = req.body;
 
     const updated = await prisma.department.update({
-      where: { id},  
+      where: { id }, // id is String
       data: { name, code },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Department updated successfully",
       updated,
     });
   } catch (error) {
     console.error("❌ Error updating department:", error);
-    res.status(500).json({ error: "Failed to update department" });
+    return res.status(500).json({ error: "Failed to update department" });
   }
 };
 
@@ -91,42 +126,45 @@ export const deleteDepartment = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     await prisma.department.delete({
-     where: { id},  
+      where: { id }, // id is String
     });
 
-    res.status(200).json({ message: "Department deleted successfully" });
+    return res.status(200).json({ message: "Department deleted successfully" });
   } catch (error) {
     console.error("❌ Error deleting department:", error);
-    res.status(500).json({ error: "Failed to delete department" });
+    return res.status(500).json({ error: "Failed to delete department" });
   }
 };
 
-// controllers/departmentController.ts
-
+// ✅ Set Admission Format for a Department
 export const setAdmissionFormat = async (req: Request, res: Response) => {
   try {
     const { departmentId, formatPreview } = req.body;
 
-    if (!departmentId || !formatPreview)
+    if (!departmentId || !formatPreview) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
 
-    // Convert preview (ECNS/AD/2024/001) into regex
-    const prefix = formatPreview.split("/")[0]; // e.g. ECNS
+    // Example: ECNS/AD/2024/001
+    const prefix = formatPreview.split("/")[0]; // e.g. "ECNS"
     const regex = `^${prefix}\\/AD\\/\\d{4}\\/\\d{3}$`;
 
     const updated = await prisma.department.update({
-      where: { id: departmentId},
+      where: { id: departmentId },
       data: {
         admissionFormatPreview: formatPreview,
         admissionFormatRegex: regex,
       },
     });
 
-    res.json({
+    return res.json({
       message: "Admission format set successfully",
       department: updated,
     });
   } catch (error: any) {
-    res.status(500).json({ message: "Error setting format", error: error.message });
+    console.error("❌ Error setting admission format:", error);
+    return res
+      .status(500)
+      .json({ message: "Error setting format", error: error.message });
   }
 };

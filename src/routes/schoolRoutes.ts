@@ -31,4 +31,6 @@ router.post("/verify-code", verifySchoolCode);
 
 router.get("/all", getAllSchoolsWithCodes);
 
+
+
 export default router;
